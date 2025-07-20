@@ -1,10 +1,9 @@
 resource "aws_s3_bucket" "this" {
   bucket = "ind-${var.environment}-${var.bucket_name}"
 
-  tags = {
-    Name        = "ind-${var.environment}-${var.bucket_name}"
-    Environment = var.environment
-  }
+  tags = merge({
+    Name = "ind-${var.environment}-${var.bucket_name}"
+  }, var.tags)
 
   lifecycle {
     prevent_destroy = true # Prevent accidental deletion

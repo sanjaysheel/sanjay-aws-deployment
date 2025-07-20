@@ -1,12 +1,5 @@
 locals {
   allowed_environments = ["dev", "staging", "prod"]
-  
-  # Validate environment
-  validate_env = (
-    contains(local.allowed_environments, var.environment) 
-    ? null 
-    : file("ERROR: Environment must be one of: ${join(", ", local.allowed_environments)}")
-  )
 }
 
 # Create environment-specific IAM roles

@@ -11,7 +11,18 @@ variable "bucket_acl" {
 }
 
 variable "environment" {
-  description = "The environment for the S3 bucket (dev, prod, etc.)"
+  description = "The environment to deploy (dev, staging, prod)"
   type        = string
   default     = "dev"
+  
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be one of: dev, staging, prod."
+  }
+}
+
+variable "tags" {
+  description = "A map of tags to add to all resources"
+  type        = map(string)
+  default     = {}
 }
