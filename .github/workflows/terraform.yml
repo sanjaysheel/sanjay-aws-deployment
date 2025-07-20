@@ -127,9 +127,10 @@ jobs:
     - name: Terraform Init
       if: ${{ github.event.inputs.terraform_action == 'init' }}
       run: |
-        # First init with local backend
-        cp local_backend.tf backend.tf
-        terraform init -input=false -lock=false
+        # Remove any existing state files
+        rm -f terraform.tfstate*
+        rm -f .terraform.lock.hcl
+        rm -rf .terraform
         
         # Create S3 backend config
         cat > backend.tf << EOF
@@ -144,15 +145,36 @@ jobs:
         }
         EOF
         
-        # Then migrate to S3 backend
-        terraform init -input=false -lock=false -force-copy -migrate-state
+        # Initialize with fresh state
+        terraform init -reconfigure
 
     # Terraform Plan (if selected)
     - name: Terraform Plan
       if: ${{ github.event.inputs.terraform_action == 'plan' }}
       run: |
-        terraform init -input=false -lock=false -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
-        terraform plan -input=false -lock=false -var-file=environments/${{ github.event.inputs.environment }}.tfvars -no-color
+        # Remove any existing state files
+        rm -f terraform.tfstate*
+        rm -f .terraform.lock.hcl
+        rm -rf .terraform
+        
+        # Create S3 backend config
+        cat > backend.tf << EOF
+        terraform {
+          backend "s3" {
+            bucket         = "ind-tfstate-bucket"
+            key            = "terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
+            region         = "us-east-1"
+            dynamodb_table = "ind-tfstate-lock"
+            encrypt        = true
+          }
+        }
+        EOF
+        
+        # Initialize with fresh state
+        terraform init -reconfigure
+        
+        # Run plan
+        terraform plan -var-file=environments/${{ github.event.inputs.environment }}.tfvars -no-color
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
