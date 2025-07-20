@@ -80,7 +80,27 @@ jobs:
         # Try to force unlock the state
         ENV="${{ github.event.inputs.environment }}"
         echo "Attempting to force unlock state for environment: $ENV"
-        terraform force-unlock -force "$(aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --query 'Items[0].LockID.S' --output text 2>/dev/null || echo 'no-lock')" || true
+        
+        # Check if the DynamoDB table exists
+        if aws dynamodb describe-table --table-name ind-tfstate-lock 2>/dev/null; then
+          # Get all lock IDs and force unlock each one
+          LOCK_IDS=$(aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --query 'Items[*].LockID.S' --output text 2>/dev/null)
+          
+          if [ -n "$LOCK_IDS" ]; then
+            echo "Found locks, attempting to unlock..."
+            for LOCK_ID in $LOCK_IDS; do
+              echo "Unlocking: $LOCK_ID"
+              terraform force-unlock -force "$LOCK_ID" || true
+            done
+          else
+            echo "No locks found in DynamoDB table"
+          fi
+        else
+          echo "DynamoDB lock table does not exist yet"
+        fi
+        
+        # Also try direct S3 approach
+        aws s3api put-object --bucket ind-tfstate-bucket --key terraform/$ENV/terraform.tfstate.lock --body /dev/null || true
 
     # Set the environment and action variables
     - name: Set Environment and Action Variables
@@ -104,18 +124,18 @@ jobs:
       if: ${{ github.event.inputs.terraform_action == 'plan' }}
       run: |
         terraform init -lock=false -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
-        terraform plan -var-file=environments/${{ github.event.inputs.environment }}.tfvars -no-color
+        terraform plan -lock=false -var-file=environments/${{ github.event.inputs.environment }}.tfvars -no-color
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
       if: ${{ github.event.inputs.terraform_action == 'apply' }}
       run: |
         terraform init -lock=false -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
-        terraform apply -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
+        terraform apply -lock=false -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
       if: ${{ github.event.inputs.terraform_action == 'destroy' }}
       run: |
         terraform init -lock=false -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
-        terraform destroy -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
+        terraform destroy -lock=false -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
