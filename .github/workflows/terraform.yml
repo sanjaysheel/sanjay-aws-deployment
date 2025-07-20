@@ -15,9 +15,9 @@ on:
         default: 'production'
         type: choice
         options:
-          - prod
-          - stag
           - dev
+          - stag
+          - prod
       terraform_action:
         description: 'Select Terraform action'
         required: true
