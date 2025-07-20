@@ -4,16 +4,12 @@ resource "aws_s3_bucket" "this" {
   tags = merge({
     Name = "ind-${var.environment}-${var.bucket_name}"
   }, var.tags)
-
-  lifecycle {
-    prevent_destroy = true # Prevent accidental deletion
-  }
 }
 
 resource "aws_s3_bucket_ownership_controls" "this" {
   bucket = aws_s3_bucket.this.id
   rule {
-    object_ownership = "BucketOwnerPreferred"
+    object_ownership = "BucketOwnerEnforced"
   }
 }
 

@@ -74,6 +74,25 @@ jobs:
           fi
         fi
         
+    # Handle state issues
+    - name: Handle state issues
+      run: |
+        # Check if state file exists and try to fix it if needed
+        ENV="${{ github.event.inputs.environment }}"
+        if aws s3 ls s3://ind-tfstate-bucket/terraform/$ENV/terraform.tfstate 2>/dev/null; then
+          echo "State file exists, downloading for inspection"
+          aws s3 cp s3://ind-tfstate-bucket/terraform/$ENV/terraform.tfstate terraform.tfstate.backup
+          
+          # If we need to reset state completely
+          if [ "${{ github.event.inputs.terraform_action }}" == "init" ]; then
+            echo "Creating empty state file for fresh start"
+            echo '{"version":4}' > empty.tfstate
+            aws s3 cp empty.tfstate s3://ind-tfstate-bucket/terraform/$ENV/terraform.tfstate
+          fi
+        else
+          echo "No state file exists yet"
+        fi
+        
     # Force unlock state if needed
     - name: Force unlock state
       run: |
