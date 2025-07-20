@@ -67,14 +67,20 @@ jobs:
     # Terraform Plan (if selected)
     - name: Terraform Plan
       if: ${{ github.event.inputs.terraform_action == 'plan' }}
-      run: terraform plan
+      run: |
+        terraform init -upgrade
+        terraform plan
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
       if: ${{ github.event.inputs.terraform_action == 'apply' }}
-      run: terraform apply -auto-approve
+      run: |
+        terraform init -upgrade
+        terraform apply -auto-approve
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
       if: ${{ github.event.inputs.terraform_action == 'destroy' }}
-      run: terraform destroy -auto-approve
+      run: |
+        terraform init -upgrade
+        terraform destroy -auto-approve
