@@ -52,6 +52,27 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
+        
+    # Check and create state bucket if it doesn't exist
+    - name: Check and create state bucket
+      run: |
+        # Check if state bucket exists
+        if ! aws s3api head-bucket --bucket ind-tfstate-bucket 2>/dev/null; then
+          echo "Creating Terraform state bucket..."
+          cd setup
+          terraform init
+          terraform apply -auto-approve
+          cd ..
+          
+          # Copy backend template to backend.tf
+          cp backend.tf.tmpl backend.tf
+        else
+          echo "Terraform state bucket already exists"
+          # Copy backend template to backend.tf if it doesn't exist
+          if [ ! -f backend.tf ]; then
+            cp backend.tf.tmpl backend.tf
+          fi
+        fi
 
     # Set the environment and action variables
     - name: Set Environment and Action Variables
