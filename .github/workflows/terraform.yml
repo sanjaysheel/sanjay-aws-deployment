@@ -1,12 +1,36 @@
-name: Deploy to AWS
+name: Terraform AWS Deployment
 
 on:
   push:
-    branches:
+    branches:  # Trigger on push to the main branch
       - main
       - dev
       - staging
       - prod
+  pull_request:
+    branches:
+      - main  # Trigger on pull request to the main branch
+  workflow_dispatch:  # This enables manual trigger from GitHub UI
+    inputs:
+      environment:
+        description: 'Choose your environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+      terraform_action:
+        description: 'Select Terraform action'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - init
+          - plan
+          - apply
+          - destroy
 
 jobs:
   terraform:
@@ -24,7 +48,7 @@ jobs:
       with:
         terraform_version: '1.4.0'
 
-    # AWS Credentials
+    # Configure AWS credentials
     - name: AWS Credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -32,14 +56,30 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    # Initialize Terraform
+    # Set the environment and action variables
+    - name: Set Environment and Action Variables
+      run: |
+        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "Terraform Action: ${{ github.event.inputs.terraform_action }}"
+
+    # Terraform Init (if selected)
     - name: Terraform Init
+      if: ${{ github.event.inputs.terraform_action == 'init' }}
       run: terraform init
 
-    # Validate Terraform configuration
-    - name: Terraform Validate
-      run: terraform validate
+    # Terraform Plan (if selected)
+    - name: Terraform Plan
+      if: ${{ github.event.inputs.terraform_action == 'plan' }}
+      run: terraform plan
 
-    # Apply Terraform plan
+    # Terraform Apply (if selected)
     - name: Terraform Apply
+      if: ${{ github.event.inputs.terraform_action == 'apply' }}
+      run: terraform apply -auto-approve
+
+    # Terraform Destroy (if selected)
+    - name: Terraform Destroy
+      if: ${{ github.event.inputs.terraform_action == 'destroy' }}
+      run: terraform destroy -auto-approve
+
       run: terraform apply -auto-approve
