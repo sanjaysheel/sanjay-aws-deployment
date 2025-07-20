@@ -73,6 +73,14 @@ jobs:
             cp backend.tf.tmpl backend.tf
           fi
         fi
+        
+    # Force unlock state if needed
+    - name: Force unlock state
+      run: |
+        # Try to force unlock the state
+        ENV="${{ github.event.inputs.environment }}"
+        echo "Attempting to force unlock state for environment: $ENV"
+        terraform force-unlock -force "$(aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --query 'Items[0].LockID.S' --output text 2>/dev/null || echo 'no-lock')" || true
 
     # Set the environment and action variables
     - name: Set Environment and Action Variables
@@ -89,25 +97,25 @@ jobs:
     # Terraform Init (if selected)
     - name: Terraform Init
       if: ${{ github.event.inputs.terraform_action == 'init' }}
-      run: terraform init -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
+      run: terraform init -lock=false -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
 
     # Terraform Plan (if selected)
     - name: Terraform Plan
       if: ${{ github.event.inputs.terraform_action == 'plan' }}
       run: |
-        terraform init -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
+        terraform init -lock=false -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
         terraform plan -var-file=environments/${{ github.event.inputs.environment }}.tfvars -no-color
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
       if: ${{ github.event.inputs.terraform_action == 'apply' }}
       run: |
-        terraform init -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
+        terraform init -lock=false -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
         terraform apply -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
       if: ${{ github.event.inputs.terraform_action == 'destroy' }}
       run: |
-        terraform init -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
+        terraform init -lock=false -migrate-state -force-copy -upgrade -backend-config="key=terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
         terraform destroy -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
