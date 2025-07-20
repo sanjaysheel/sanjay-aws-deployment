@@ -4,9 +4,6 @@ on:
   push:
     branches:  # Trigger on push to the main branch
       - main
-      - dev
-      - staging
-      - prod
   pull_request:
     branches:
       - main  # Trigger on pull request to the main branch
@@ -18,9 +15,9 @@ on:
         default: 'production'
         type: choice
         options:
-          - production
-          - staging
-          - development
+          - prod
+          - stag
+          - dev
       terraform_action:
         description: 'Select Terraform action'
         required: true
