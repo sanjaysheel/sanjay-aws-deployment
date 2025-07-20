@@ -1,7 +1,7 @@
 variable "bucket_name" {
-  description = "The name of the S3 bucket"
+  description = "The name suffix for the S3 bucket (will be prefixed with ind-{environment}-)"
   type        = string
-  default     = "my-dev-bucket"
+  default     = "data-bucket"
 }
 
 variable "bucket_acl" {

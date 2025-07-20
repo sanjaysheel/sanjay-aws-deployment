@@ -1,6 +1,6 @@
 locals {
   # Common prefix for all resources
-  prefix = "aws"
+  prefix = "ind"
   
   # Resource naming convention
   name_prefix = "${local.prefix}-${var.environment}"

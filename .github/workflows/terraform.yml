@@ -58,6 +58,12 @@ jobs:
       run: |
         echo "Environment: ${{ github.event.inputs.environment }}"
         echo "Terraform Action: ${{ github.event.inputs.terraform_action }}"
+        
+        # Validate environment
+        if [[ "${{ github.event.inputs.environment }}" != "dev" && "${{ github.event.inputs.environment }}" != "staging" && "${{ github.event.inputs.environment }}" != "prod" ]]; then
+          echo "Error: Environment must be one of: dev, staging, prod"
+          exit 1
+        fi
 
     # Terraform Init (if selected)
     - name: Terraform Init
