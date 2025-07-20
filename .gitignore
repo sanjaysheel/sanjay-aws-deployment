@@ -1,0 +1,10 @@
+# .gitignore
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate
+*.tfstate.*
+echo ".terraform/" >> .gitignore
+git rm -r --cached .terraform/
+git commit -m "Remove .terraform cache from Git"
+git push origin dev --force
