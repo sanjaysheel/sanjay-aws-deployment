@@ -2,22 +2,22 @@ name: Terraform AWS Deployment
 
 on:
   push:
-    branches:  # Trigger on push to the main branch
+    branches:
       - main
   pull_request:
     branches:
-      - main  # Trigger on pull request to the main branch
-  workflow_dispatch:  # This enables manual trigger from GitHub UI
+      - main
+  workflow_dispatch:
     inputs:
       environment:
         description: 'Choose your environment'
         required: true
-        default: 'production'
+        default: 'prod'
         type: choice
         options:
-          - dev
-          - stag
           - prod
+          - stag
+          - dev
       terraform_action:
         description: 'Select Terraform action'
         required: true
@@ -31,50 +31,48 @@ on:
 
 jobs:
   terraform:
-    name: Terraform Setup and Apply
+    name: Terraform Setup and Action
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout the code
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    # Set up Terraform
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v1
-      with:
-        terraform_version: '1.4.0'
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.4.0'
 
-    # Configure AWS credentials
-    - name: AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-    # Set the environment and action variables
-    - name: Set Environment and Action Variables
-      run: |
-        echo "Environment: ${{ github.event.inputs.environment }}"
-        echo "Terraform Action: ${{ github.event.inputs.terraform_action }}"
+      - name: Print Inputs
+        run: |
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Terraform Action: ${{ github.event.inputs.terraform_action }}"
 
-    # Terraform Init (if selected)
-    - name: Terraform Init
-      if: ${{ github.event.inputs.terraform_action == 'init' }}
-      run: terraform init
+      # Always run terraform init before any other action except init itself
+      - name: Terraform Init (always before plan/apply/destroy)
+        if: ${{ github.event.inputs.terraform_action != 'init' }}
+        run: terraform init
 
-    # Terraform Plan (if selected)
-    - name: Terraform Plan
-      if: ${{ github.event.inputs.terraform_action == 'plan' }}
-      run: terraform plan
+      # Run terraform init if selected explicitly
+      - name: Terraform Init (explicit)
+        if: ${{ github.event.inputs.terraform_action == 'init' }}
+        run: terraform init
 
-    # Terraform Apply (if selected)
-    - name: Terraform Apply
-      if: ${{ github.event.inputs.terraform_action == 'apply' }}
-      run: terraform apply -auto-approve
+      - name: Terraform Plan
+        if: ${{ github.event.inputs.terraform_action == 'plan' }}
+        run: terraform plan
 
-    # Terraform Destroy (if selected)
-    - name: Terraform Destroy
-      if: ${{ github.event.inputs.terraform_action == 'destroy' }}
-      run: terraform destroy -auto-approve
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.terraform_action == 'apply' }}
+        run: terraform apply -auto-approve
+
+      - name: Terraform Destroy
+        if: ${{ github.event.inputs.terraform_action == 'destroy' }}
+        run: terraform destroy -auto-approve
