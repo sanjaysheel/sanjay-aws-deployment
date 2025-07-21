@@ -201,18 +201,25 @@ jobs:
         # Initialize with local backend
         terraform init
         
-        # Handle existing resources for stag environment
-        if [ "${{ github.event.inputs.environment }}" == "stag" ]; then
-          echo "Handling existing resources for stag environment"
-          # Create a temporary plan file
-          terraform plan -var-file=environments/stag.tfvars -out=tfplan
+        # Handle existing resources for all environments
+        echo "Handling existing resources for ${{ github.event.inputs.environment }} environment"
+        
+        # First refresh state to detect existing resources
+        terraform apply -refresh-only -auto-approve -var-file=environments/${{ github.event.inputs.environment }}.tfvars
+        
+        # Then import existing resources if needed
+        if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+          # Try to import IAM role if it exists
+          aws iam get-role --role-name environment-prod-role >/dev/null 2>&1 && \
+          terraform import -var-file=environments/prod.tfvars aws_iam_role.environment_role environment-prod-role || true
           
-          # Apply with target to avoid errors on existing resources
-          terraform apply -var-file=environments/stag.tfvars -auto-approve -refresh-only
-        else
-          # Run normal apply for other environments
-          terraform apply -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
+          # Try to import S3 bucket if it exists
+          aws s3api head-bucket --bucket ind-prod-prod-data >/dev/null 2>&1 && \
+          terraform import -var-file=environments/prod.tfvars module.s3_bucket.aws_s3_bucket.this ind-prod-prod-data || true
         fi
+        
+        # Run apply
+        terraform apply -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
