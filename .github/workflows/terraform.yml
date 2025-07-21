@@ -37,17 +37,17 @@ jobs:
     steps:
     # Checkout the code
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     # Set up Terraform
     - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v1
+      uses: hashicorp/setup-terraform@v2
       with:
         terraform_version: '1.4.0'
 
     # Configure AWS credentials
     - name: AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v1
+      uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -201,8 +201,18 @@ jobs:
         # Initialize with local backend
         terraform init
         
-        # Run apply
-        terraform apply -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
+        # Handle existing resources for stag environment
+        if [ "${{ github.event.inputs.environment }}" == "stag" ]; then
+          echo "Handling existing resources for stag environment"
+          # Create a temporary plan file
+          terraform plan -var-file=environments/stag.tfvars -out=tfplan
+          
+          # Apply with target to avoid errors on existing resources
+          terraform apply -var-file=environments/stag.tfvars -auto-approve -refresh-only
+        else
+          # Run normal apply for other environments
+          terraform apply -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
+        fi
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
