@@ -130,8 +130,8 @@ jobs:
         echo "Terraform Action: ${{ github.event.inputs.terraform_action }}"
         
         # Validate environment
-        if [[ "${{ github.event.inputs.environment }}" != "dev" && "${{ github.event.inputs.environment }}" != "staging" && "${{ github.event.inputs.environment }}" != "prod" ]]; then
-          echo "Error: Environment must be one of: dev, staging, prod"
+        if [[ "${{ github.event.inputs.environment }}" != "dev" && "${{ github.event.inputs.environment }}" != "stag" && "${{ github.event.inputs.environment }}" != "prod" ]]; then
+          echo "Error: Environment must be one of: dev, stag, prod"
           exit 1
         fi
 
