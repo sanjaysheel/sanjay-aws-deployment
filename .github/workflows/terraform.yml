@@ -126,18 +126,26 @@ jobs:
     # Set the environment and action variables
     - name: Set Environment and Action Variables
       run: |
-        echo "Environment: ${{ github.event.inputs.environment }}"
-        echo "Terraform Action: ${{ github.event.inputs.terraform_action }}"
+        # Set default values for environment and action when triggered by push/PR
+        ENV="${{ github.event.inputs.environment || 'dev' }}"
+        ACTION="${{ github.event.inputs.terraform_action || 'plan' }}"
+        
+        echo "Environment: $ENV"
+        echo "Terraform Action: $ACTION"
+        
+        # Set environment variables for later steps
+        echo "TF_ENV=$ENV" >> $GITHUB_ENV
+        echo "TF_ACTION=$ACTION" >> $GITHUB_ENV
         
         # Validate environment
-        if [[ "${{ github.event.inputs.environment }}" != "dev" && "${{ github.event.inputs.environment }}" != "stag" && "${{ github.event.inputs.environment }}" != "prod" ]]; then
+        if [[ "$ENV" != "dev" && "$ENV" != "stag" && "$ENV" != "prod" ]]; then
           echo "Error: Environment must be one of: dev, stag, prod"
           exit 1
         fi
 
     # Terraform Init (if selected)
     - name: Terraform Init
-      if: ${{ github.event.inputs.terraform_action == 'init' }}
+      if: ${{ env.TF_ACTION == 'init' }}
       run: |
         # Remove any existing state files and backend config
         rm -f terraform.tfstate*
@@ -158,7 +166,7 @@ jobs:
 
     # Terraform Plan (if selected)
     - name: Terraform Plan
-      if: ${{ github.event.inputs.terraform_action == 'plan' }}
+      if: ${{ env.TF_ACTION == 'plan' }}
       run: |
         # Remove any existing state files and backend config
         rm -f terraform.tfstate*
@@ -182,7 +190,7 @@ jobs:
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
-      if: ${{ github.event.inputs.terraform_action == 'apply' }}
+      if: ${{ env.TF_ACTION == 'apply' }}
       run: |
         # Remove any existing state files and backend config
         rm -f terraform.tfstate*
@@ -223,7 +231,7 @@ jobs:
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
-      if: ${{ github.event.inputs.terraform_action == 'destroy' }}
+      if: ${{ env.TF_ACTION == 'destroy' }}
       run: |
         # Remove any existing state files and backend config
         rm -f terraform.tfstate*
