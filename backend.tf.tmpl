@@ -1,0 +1,9 @@
+terraform {
+  backend "s3" {
+    bucket         = "ind-tfstate-bucket"
+    region         = "us-east-1"
+    dynamodb_table = "ind-tfstate-lock"
+    encrypt        = true
+    # key will be set dynamically during terraform init
+  }
+}
