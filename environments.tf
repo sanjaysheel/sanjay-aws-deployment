@@ -1,11 +1,11 @@
 locals {
-  allowed_environments = ["dev", "staging", "prod"]
+  allowed_environments = ["dev", "stag", "prod"]
 }
 
 # Create environment-specific IAM roles
 resource "aws_iam_role" "environment_role" {
   name = "environment-${var.environment}-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -18,7 +18,7 @@ resource "aws_iam_role" "environment_role" {
       }
     ]
   })
-  
+
   tags = {
     Environment = var.environment
   }

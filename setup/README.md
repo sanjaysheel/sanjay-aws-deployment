@@ -19,5 +19,5 @@ terraform apply
 The state files will be stored in the following structure:
 
 - `terraform/dev/terraform.tfstate` - Dev environment state
-- `terraform/staging/terraform.tfstate` - Staging environment state
+- `terraform/stag/terraform.tfstate` - stag environment state
 - `terraform/prod/terraform.tfstate` - Production environment state

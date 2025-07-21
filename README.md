@@ -5,7 +5,7 @@ Got it! Here's a **documentation-style** README for setting up GitHub Actions fo
 
 # Terraform Deployment with GitHub Actions
 
-This repository provides a setup for deploying infrastructure to AWS using **Terraform** and **GitHub Actions**. The process includes automatic and manual deployment to multiple environments such as **development**, **staging**, and **production**.
+This repository provides a setup for deploying infrastructure to AWS using **Terraform** and **GitHub Actions**. The process includes automatic and manual deployment to multiple environments such as **development**, **stag**, and **production**.
 
 ---
 
@@ -143,7 +143,7 @@ These secrets are required for AWS authentication and deployment in GitHub Actio
            type: choice
            options:
              - development
-             - staging
+             - stag
              - production
          terraform_action:
            description: 'Select Terraform action'

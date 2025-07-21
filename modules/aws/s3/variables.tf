@@ -11,13 +11,13 @@ variable "bucket_acl" {
 }
 
 variable "environment" {
-  description = "The environment to deploy (dev, staging, prod)"
+  description = "The environment to deploy (dev, stag, prod)"
   type        = string
   default     = "dev"
-  
+
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be one of: dev, staging, prod."
+    condition     = contains(["dev", "stag", "prod"], var.environment)
+    error_message = "Environment must be one of: dev, stag, prod."
   }
 }
 
