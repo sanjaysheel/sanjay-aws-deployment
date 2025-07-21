@@ -139,10 +139,11 @@ jobs:
     - name: Terraform Init
       if: ${{ github.event.inputs.terraform_action == 'init' }}
       run: |
-        # Remove any existing state files
+        # Remove any existing state files and backend config
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
+        rm -f backend.tf
         
         # Use local backend only
         cat > backend.tf << EOF
@@ -159,10 +160,11 @@ jobs:
     - name: Terraform Plan
       if: ${{ github.event.inputs.terraform_action == 'plan' }}
       run: |
-        # Remove any existing state files
+        # Remove any existing state files and backend config
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
+        rm -f backend.tf
         
         # Start with local backend
         cat > backend.tf << EOF
@@ -198,10 +200,11 @@ jobs:
     - name: Terraform Apply
       if: ${{ github.event.inputs.terraform_action == 'apply' }}
       run: |
-        # Remove any existing state files
+        # Remove any existing state files and backend config
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
+        rm -f backend.tf
         
         # Start with local backend
         cat > backend.tf << EOF
@@ -237,26 +240,22 @@ jobs:
     - name: Terraform Destroy
       if: ${{ github.event.inputs.terraform_action == 'destroy' }}
       run: |
-        # Remove any existing state files
+        # Remove any existing state files and backend config
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
+        rm -f backend.tf
         
-        # Create S3 backend config
+        # Start with local backend
         cat > backend.tf << EOF
+        # Using local backend initially
         terraform {
-          backend "s3" {
-            bucket         = "ind-tfstate-bucket"
-            key            = "terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
-            region         = "us-east-1"
-            dynamodb_table = "ind-tfstate-lock"
-            encrypt        = true
-          }
+          backend "local" {}
         }
         EOF
         
-        # Initialize with fresh state
-        terraform init -reconfigure
+        # Initialize with local backend
+        terraform init
         
         # Run destroy
         terraform destroy -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
