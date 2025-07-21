@@ -144,21 +144,16 @@ jobs:
         rm -f .terraform.lock.hcl
         rm -rf .terraform
         
-        # Create S3 backend config
+        # Use local backend only
         cat > backend.tf << EOF
+        # Using local backend
         terraform {
-          backend "s3" {
-            bucket         = "ind-tfstate-bucket"
-            key            = "terraform/${{ github.event.inputs.environment }}/terraform.tfstate"
-            region         = "us-east-1"
-            dynamodb_table = "ind-tfstate-lock"
-            encrypt        = true
-          }
+          backend "local" {}
         }
         EOF
         
-        # Initialize with fresh state
-        terraform init -reconfigure
+        # Initialize with local backend
+        terraform init
 
     # Terraform Plan (if selected)
     - name: Terraform Plan
@@ -169,7 +164,18 @@ jobs:
         rm -f .terraform.lock.hcl
         rm -rf .terraform
         
-        # Create S3 backend config
+        # Start with local backend
+        cat > backend.tf << EOF
+        # Using local backend initially
+        terraform {
+          backend "local" {}
+        }
+        EOF
+        
+        # Initialize with local backend
+        terraform init
+        
+        # Now create S3 backend config
         cat > backend.tf << EOF
         terraform {
           backend "s3" {
@@ -182,8 +188,8 @@ jobs:
         }
         EOF
         
-        # Initialize with fresh state
-        terraform init -reconfigure
+        # Push state to S3
+        terraform init -force-copy
         
         # Run plan
         terraform plan -var-file=environments/${{ github.event.inputs.environment }}.tfvars -no-color
@@ -197,7 +203,18 @@ jobs:
         rm -f .terraform.lock.hcl
         rm -rf .terraform
         
-        # Create S3 backend config
+        # Start with local backend
+        cat > backend.tf << EOF
+        # Using local backend initially
+        terraform {
+          backend "local" {}
+        }
+        EOF
+        
+        # Initialize with local backend
+        terraform init
+        
+        # Now create S3 backend config
         cat > backend.tf << EOF
         terraform {
           backend "s3" {
@@ -210,8 +227,8 @@ jobs:
         }
         EOF
         
-        # Initialize with fresh state
-        terraform init -reconfigure
+        # Push state to S3
+        terraform init -force-copy
         
         # Run apply
         terraform apply -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
