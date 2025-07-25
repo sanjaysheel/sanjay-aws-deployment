@@ -28,6 +28,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
     id     = "delete_all"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     expiration {
       days = 1
     }
