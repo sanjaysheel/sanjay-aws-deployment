@@ -224,6 +224,22 @@ jobs:
           # Try to import S3 bucket if it exists
           aws s3api head-bucket --bucket ind-prod-prod-data >/dev/null 2>&1 && \
           terraform import -var-file=environments/prod.tfvars module.s3_bucket.aws_s3_bucket.this ind-prod-prod-data || true
+        elif [ "${TF_ENV}" == "dev" ]; then
+          # Try to import IAM role if it exists
+          aws iam get-role --role-name environment-dev-role >/dev/null 2>&1 && \
+          terraform import -var-file=environments/dev.tfvars aws_iam_role.environment_role environment-dev-role || true
+          
+          # Try to import S3 bucket if it exists
+          aws s3api head-bucket --bucket ind-dev-dev-data >/dev/null 2>&1 && \
+          terraform import -var-file=environments/dev.tfvars module.s3_bucket.aws_s3_bucket.this ind-dev-dev-data || true
+        elif [ "${TF_ENV}" == "stag" ]; then
+          # Try to import IAM role if it exists
+          aws iam get-role --role-name environment-stag-role >/dev/null 2>&1 && \
+          terraform import -var-file=environments/stag.tfvars aws_iam_role.environment_role environment-stag-role || true
+          
+          # Try to import S3 bucket if it exists
+          aws s3api head-bucket --bucket ind-stag-stag-data >/dev/null 2>&1 && \
+          terraform import -var-file=environments/stag.tfvars module.s3_bucket.aws_s3_bucket.this ind-stag-stag-data || true
         fi
         
         # Run apply
