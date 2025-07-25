@@ -227,7 +227,7 @@ jobs:
         fi
         
         # Run apply
-        terraform apply -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
+        terraform apply -var-file=environments/${TF_ENV}.tfvars -auto-approve
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
@@ -251,4 +251,4 @@ jobs:
         terraform init
         
         # Run destroy
-        terraform destroy -var-file=environments/${{ github.event.inputs.environment }}.tfvars -auto-approve
+        terraform destroy -var-file=environments/${TF_ENV}.tfvars -auto-approve
