@@ -161,7 +161,8 @@ jobs:
         }
         EOF
         
-        # Initialize with local backend
+        # Change to main_module directory and initialize
+        cd main_module
         terraform init
 
     # Terraform Plan (if selected)
@@ -182,11 +183,12 @@ jobs:
         }
         EOF
         
-        # Initialize with local backend
+        # Change to main_module directory and initialize
+        cd main_module
         terraform init
         
         # Run plan
-        terraform plan -var-file=environments/${TF_ENV}.tfvars -no-color
+        terraform plan -var-file=../environments/${TF_ENV}.tfvars -no-color
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
@@ -206,44 +208,45 @@ jobs:
         }
         EOF
         
-        # Initialize with local backend
+        # Change to main_module directory and initialize
+        cd main_module
         terraform init
         
         # Handle existing resources for all environments
         echo "Handling existing resources for ${TF_ENV} environment"
         
         # First refresh state to detect existing resources
-        terraform apply -refresh-only -auto-approve -var-file=environments/${TF_ENV}.tfvars
+        terraform apply -refresh-only -auto-approve -var-file=../environments/${TF_ENV}.tfvars
         
         # Then import existing resources if needed
         if [ "${TF_ENV}" == "prod" ]; then
           # Try to import IAM role if it exists
           aws iam get-role --role-name environment-prod-role >/dev/null 2>&1 && \
-          terraform import -var-file=environments/prod.tfvars aws_iam_role.environment_role environment-prod-role || true
+          terraform import -var-file=../environments/prod.tfvars aws_iam_role.environment_role environment-prod-role || true
           
           # Try to import S3 bucket if it exists
           aws s3api head-bucket --bucket ind-prod-prod-data >/dev/null 2>&1 && \
-          terraform import -var-file=environments/prod.tfvars module.s3_bucket.aws_s3_bucket.this ind-prod-prod-data || true
+          terraform import -var-file=../environments/prod.tfvars module.s3_bucket.aws_s3_bucket.this ind-prod-prod-data || true
         elif [ "${TF_ENV}" == "dev" ]; then
           # Try to import IAM role if it exists
           aws iam get-role --role-name environment-dev-role >/dev/null 2>&1 && \
-          terraform import -var-file=environments/dev.tfvars aws_iam_role.environment_role environment-dev-role || true
+          terraform import -var-file=../environments/dev.tfvars aws_iam_role.environment_role environment-dev-role || true
           
           # Try to import S3 bucket if it exists
           aws s3api head-bucket --bucket ind-dev-dev-data >/dev/null 2>&1 && \
-          terraform import -var-file=environments/dev.tfvars module.s3_bucket.aws_s3_bucket.this ind-dev-dev-data || true
+          terraform import -var-file=../environments/dev.tfvars module.s3_bucket.aws_s3_bucket.this ind-dev-dev-data || true
         elif [ "${TF_ENV}" == "stag" ]; then
           # Try to import IAM role if it exists
           aws iam get-role --role-name environment-stag-role >/dev/null 2>&1 && \
-          terraform import -var-file=environments/stag.tfvars aws_iam_role.environment_role environment-stag-role || true
+          terraform import -var-file=../environments/stag.tfvars aws_iam_role.environment_role environment-stag-role || true
           
           # Try to import S3 bucket if it exists
           aws s3api head-bucket --bucket ind-stag-stag-data >/dev/null 2>&1 && \
-          terraform import -var-file=environments/stag.tfvars module.s3_bucket.aws_s3_bucket.this ind-stag-stag-data || true
+          terraform import -var-file=../environments/stag.tfvars module.s3_bucket.aws_s3_bucket.this ind-stag-stag-data || true
         fi
         
         # Run apply
-        terraform apply -var-file=environments/${TF_ENV}.tfvars -auto-approve
+        terraform apply -var-file=../environments/${TF_ENV}.tfvars -auto-approve
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
@@ -263,8 +266,9 @@ jobs:
         }
         EOF
         
-        # Initialize with local backend
+        # Change to main_module directory and initialize
+        cd main_module
         terraform init
         
         # Run destroy
-        terraform destroy -var-file=environments/${TF_ENV}.tfvars -auto-approve
+        terraform destroy -var-file=../environments/${TF_ENV}.tfvars -auto-approve
