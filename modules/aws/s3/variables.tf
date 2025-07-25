@@ -1,28 +1,21 @@
 variable "bucket_name" {
-  description = "The name suffix for the S3 bucket (will be prefixed with ind-{environment}-)"
+  description = "The name of the S3 bucket"
   type        = string
-  default     = "data-bucket"
-}
-
-variable "bucket_acl" {
-  description = "The access control list (ACL) for the S3 bucket"
-  type        = string
-  default     = "private"
 }
 
 variable "environment" {
-  description = "The environment to deploy (dev, stag, prod)"
+  description = "The environment (dev, stag, prod)"
   type        = string
-  default     = "dev"
-
-  validation {
-    condition     = contains(["dev", "stag", "prod"], var.environment)
-    error_message = "Environment must be one of: dev, stag, prod."
-  }
 }
 
 variable "tags" {
-  description = "A map of tags to add to all resources"
+  description = "A map of tags to assign to the resource"
   type        = map(string)
   default     = {}
+}
+
+variable "force_destroy" {
+  description = "A boolean that indicates all objects should be deleted from the bucket so that the bucket can be destroyed without error"
+  type        = bool
+  default     = false
 }

@@ -3,6 +3,7 @@ module "s3_bucket" {
   bucket_name = "${var.environment}-data-test-1" # Environment-specific bucket name suffix
   environment = var.environment                  # Use an environment variable (e.g., dev, prod)
   tags        = local.common_tags                # Pass common tags to the module
+  force_destroy = true                           # Allow deletion of non-empty bucket
 }
 
 output "bucket_name" {

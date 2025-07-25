@@ -1,5 +1,6 @@
 resource "aws_s3_bucket" "this" {
   bucket = "ind-${var.environment}-${var.bucket_name}"
+  force_destroy = var.force_destroy
 
   tags = merge({
     Name = "ind-${var.environment}-${var.bucket_name}"
