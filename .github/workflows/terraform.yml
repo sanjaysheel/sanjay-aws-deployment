@@ -2,12 +2,12 @@ name: Terraform AWS Deployment
 
 on:
   push:
-    branches:  # Trigger on push to the main branch
+    branches:
       - main
   pull_request:
     branches:
-      - main  # Trigger on pull request to the main branch
-  workflow_dispatch:  # This enables manual trigger from GitHub UI
+      - main
+  workflow_dispatch:
     inputs:
       environment:
         description: 'Choose your environment'
@@ -56,7 +56,6 @@ jobs:
     # Check and create state bucket if it doesn't exist
     - name: Check and create state bucket
       run: |
-        # Check if state bucket exists
         if ! aws s3api head-bucket --bucket ind-tfstate-bucket 2>/dev/null; then
           echo "Creating Terraform state bucket..."
           cd setup
@@ -73,44 +72,36 @@ jobs:
             cp backend.tf.tmpl backend.tf
           fi
         fi
-        
+
     # Handle state issues
     - name: Handle state issues
       run: |
-        # Make reset script executable
         chmod +x reset-backend.sh
-        
-        # Reset backend state for the current environment
         ./reset-backend.sh ${{ github.event.inputs.environment }}
-        
-        # Delete any existing state files in S3
         ENV="${{ github.event.inputs.environment }}"
+        
+        # Delete state files in S3
         aws s3 rm s3://ind-tfstate-bucket/terraform/$ENV/terraform.tfstate || true
         
-        # Delete any existing items in DynamoDB
+        # Clean up DynamoDB state lock
         if aws dynamodb describe-table --table-name ind-tfstate-lock 2>/dev/null; then
           echo "Cleaning DynamoDB table"
           aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --query 'Items[*].LockID.S' --output text | while read lockid; do
             aws dynamodb delete-item --table-name ind-tfstate-lock --key "{\"LockID\":{\"S\":\"$lockid\"}}" || true
           done
         fi
-        
+
     # Force unlock state if needed
     - name: Force unlock state
       run: |
-        # Try to force unlock the state
         ENV="${{ github.event.inputs.environment }}"
         echo "Attempting to force unlock state for environment: $ENV"
         
-        # Check if the DynamoDB table exists
+        # Force unlock in DynamoDB
         if aws dynamodb describe-table --table-name ind-tfstate-lock 2>/dev/null; then
-          # Get all lock IDs and force unlock each one
           LOCK_IDS=$(aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --query 'Items[*].LockID.S' --output text 2>/dev/null)
-          
           if [ -n "$LOCK_IDS" ]; then
-            echo "Found locks, attempting to unlock..."
             for LOCK_ID in $LOCK_IDS; do
-              echo "Unlocking: $LOCK_ID"
               terraform force-unlock -force "$LOCK_ID" || true
             done
           else
@@ -119,14 +110,13 @@ jobs:
         else
           echo "DynamoDB lock table does not exist yet"
         fi
-        
-        # Also try direct S3 approach
+
+        # Also try S3 direct unlock
         aws s3api put-object --bucket ind-tfstate-bucket --key terraform/$ENV/terraform.tfstate.lock --body /dev/null || true
 
-    # Set the environment and action variables
+    # Set Environment and Action Variables
     - name: Set Environment and Action Variables
       run: |
-        # Set default values for environment and action when triggered by push/PR
         ENV="${{ github.event.inputs.environment || 'dev' }}"
         ACTION="${{ github.event.inputs.terraform_action || 'plan' }}"
         
@@ -137,7 +127,6 @@ jobs:
         echo "TF_ENV=$ENV" >> $GITHUB_ENV
         echo "TF_ACTION=$ACTION" >> $GITHUB_ENV
         
-        # Validate environment
         if [[ "$ENV" != "dev" && "$ENV" != "stag" && "$ENV" != "prod" ]]; then
           echo "Error: Environment must be one of: dev, stag, prod"
           exit 1
@@ -147,21 +136,15 @@ jobs:
     - name: Terraform Init
       if: ${{ env.TF_ACTION == 'init' }}
       run: |
-        # Remove any existing state files and backend config
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
         rm -f backend.tf
-        
-        # Use local backend only
         cat > backend.tf << EOF
-        # Using local backend
         terraform {
           backend "local" {}
         }
         EOF
-        
-        # Change to main_module directory and initialize
         cd main_module
         terraform init
 
@@ -169,95 +152,53 @@ jobs:
     - name: Terraform Plan
       if: ${{ env.TF_ACTION == 'plan' }}
       run: |
-        # Remove any existing state files and backend config
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
         rm -f backend.tf
-        
-        # Use local backend only
         cat > backend.tf << EOF
-        # Using local backend
         terraform {
           backend "local" {}
         }
         EOF
-        
-        # Change to main_module directory and initialize
         cd main_module
         terraform init
-        
-        # Run plan
         terraform plan -var-file=../environments/${TF_ENV}.tfvars -no-color
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
       if: ${{ env.TF_ACTION == 'apply' }}
       run: |
-        # Remove any existing state files and backend config
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
         rm -f backend.tf
-        
-        # Use local backend only
         cat > backend.tf << EOF
-        # Using local backend
         terraform {
           backend "local" {}
         }
         EOF
-        
-        # Change to main_module directory and initialize
         cd main_module
         terraform init
-        
-        # Handle existing resources for all environments
-        echo "Handling existing resources for ${TF_ENV} environment"
-        
-        # First refresh state to detect existing resources
-        terraform apply -refresh-only -auto-approve -var-file=../environments/${TF_ENV}.tfvars
-        
-        # Then import existing resources if needed
-        if [ "${TF_ENV}" == "prod" ]; then
-          # Try to import IAM role if it exists
-          aws iam get-role --role-name environment-prod-role >/dev/null 2>&1 && \
-          terraform import -var-file=../environments/prod.tfvars aws_iam_role.environment_role environment-prod-role || true
-          
-          # Try to import S3 bucket if it exists
-          aws s3api head-bucket --bucket ind-prod-prod-data >/dev/null 2>&1 && \
-          terraform import -var-file=../environments/prod.tfvars module.s3_bucket.aws_s3_bucket.this ind-prod-prod-data || true
-        elif [ "${TF_ENV}" == "dev" ]; then
-          # Try to import IAM role if it exists
-          aws iam get-role --role-name environment-dev-role >/dev/null 2>&1 && \
-          terraform import -var-file=../environments/dev.tfvars aws_iam_role.environment_role environment-dev-role || true
-          
-          # Try to import S3 bucket if it exists
-          aws s3api head-bucket --bucket ind-dev-dev-data >/dev/null 2>&1 && \
-          terraform import -var-file=../environments/dev.tfvars module.s3_bucket.aws_s3_bucket.this ind-dev-dev-data || true
-        elif [ "${TF_ENV}" == "stag" ]; then
-          # Try to import IAM role if it exists
-          aws iam get-role --role-name environment-stag-role >/dev/null 2>&1 && \
-          terraform import -var-file=../environments/stag.tfvars aws_iam_role.environment_role environment-stag-role || true
-          
-          # Try to import S3 bucket if it exists
-          aws s3api head-bucket --bucket ind-stag-stag-data >/dev/null 2>&1 && \
-          terraform import -var-file=../environments/stag.tfvars module.s3_bucket.aws_s3_bucket.this ind-stag-stag-data || true
-        fi
-        
-        # Run apply
         terraform apply -var-file=../environments/${TF_ENV}.tfvars -auto-approve
 
+    # Terraform Destroy (if selected)
     - name: Terraform Destroy
       if: ${{ env.TF_ACTION == 'destroy' }}
       run: |
+        # First, clear the S3 bucket
+        aws s3 rm s3://ind-prod-prod-data --recursive || true
+        # Delete all versions if versioning is enabled
+        aws s3api list-object-versions --bucket ind-prod-prod-data --output json | \
+        jq -r '.Versions[] | .VersionId' | \
+        xargs -I {} aws s3api delete-object --bucket ind-prod-prod-data --version-id {}
+
         # Remove any existing state files and backend config
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
         rm -f backend.tf
         
-        # Start with remote backend
         cat > backend.tf << EOF
         terraform {
           backend "s3" {
@@ -270,34 +211,6 @@ jobs:
         }
         EOF
         
-        # Change to main_module directory and initialize with reconfigure
         cd main_module
         terraform init -reconfigure
-        
-        # Run terraform destroy
         terraform destroy -var-file=../environments/${TF_ENV}.tfvars -auto-approve
-
-    # Terraform Destroy (if selected)
-    # - name: Terraform Destroy
-    #   if: ${{ env.TF_ACTION == 'destroy' }}
-    #   run: |
-    #     # Remove any existing state files and backend config
-    #     rm -f terraform.tfstate*
-    #     rm -f .terraform.lock.hcl
-    #     rm -rf .terraform
-    #     rm -f backend.tf
-        
-    #     # Start with local backend
-    #     cat > backend.tf << EOF
-    #     # Using local backend initially
-    #     terraform {
-    #       backend "local" {}
-    #     }
-    #     EOF
-        
-    #     # Change to main_module directory and initialize
-    #     cd main_module
-    #     terraform init
-        
-    #     # Run destroy
-    #     terraform destroy -var-file=../environments/${TF_ENV}.tfvars -auto-approve
