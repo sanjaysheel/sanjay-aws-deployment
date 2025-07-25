@@ -169,6 +169,12 @@ jobs:
     - name: Terraform Apply
       if: ${{ env.TF_ACTION == 'apply' }}
       run: |
+        # Empty S3 buckets before operations
+        echo "Emptying S3 buckets for ${TF_ENV} environment"
+        aws s3 rm s3://ind-${TF_ENV}-${TF_ENV}-data-test-1 --recursive || true
+        aws s3api delete-objects --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --delete "$(aws s3api list-object-versions --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --query '{Objects: Versions[].{Key: Key, VersionId: VersionId}}' --output json)" || true
+        aws s3api delete-objects --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --delete "$(aws s3api list-object-versions --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --query '{Objects: DeleteMarkers[].{Key: Key, VersionId: VersionId}}' --output json)" || true
+        
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
@@ -180,20 +186,30 @@ jobs:
         EOF
         cd main_module
         terraform init
+        
+        # Import existing resources if needed
+        if [ "${TF_ENV}" == "prod" ]; then
+          aws iam get-role --role-name environment-prod-role >/dev/null 2>&1 && \
+          terraform import -var-file=../environments/prod.tfvars aws_iam_role.environment_role environment-prod-role || true
+        elif [ "${TF_ENV}" == "dev" ]; then
+          aws iam get-role --role-name environment-dev-role >/dev/null 2>&1 && \
+          terraform import -var-file=../environments/dev.tfvars aws_iam_role.environment_role environment-dev-role || true
+        elif [ "${TF_ENV}" == "stag" ]; then
+          aws iam get-role --role-name environment-stag-role >/dev/null 2>&1 && \
+          terraform import -var-file=../environments/stag.tfvars aws_iam_role.environment_role environment-stag-role || true
+        fi
+        
         terraform apply -var-file=../environments/${TF_ENV}.tfvars -auto-approve
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
       if: ${{ env.TF_ACTION == 'destroy' }}
       run: |
-        # First, clear the S3 bucket
-        aws s3 rm s3://ind-prod-prod-data --recursive || true
-        # Delete all versions if versioning is enabled
-        aws s3api list-object-versions --bucket ind-prod-prod-data --output json | \
-        jq -r '.Versions[] | .VersionId' | \
-        xargs -I {} aws s3api delete-object --bucket ind-prod-prod-data --version-id {}
+        # First, clear the S3 bucket for current environment
+        aws s3 rm s3://ind-${TF_ENV}-${TF_ENV}-data-test-1 --recursive || true
+        aws s3api delete-objects --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --delete "$(aws s3api list-object-versions --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --query '{Objects: Versions[].{Key: Key, VersionId: VersionId}}' --output json)" || true
+        aws s3api delete-objects --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --delete "$(aws s3api list-object-versions --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --query '{Objects: DeleteMarkers[].{Key: Key, VersionId: VersionId}}' --output json)" || true
 
-        # Remove any existing state files and backend config
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
@@ -201,16 +217,10 @@ jobs:
         
         cat > backend.tf << EOF
         terraform {
-          backend "s3" {
-            bucket = "ind-tfstate-bucket"
-            key    = "terraform/${TF_ENV}/terraform.tfstate"
-            region = "us-east-1"
-            dynamodb_table = "ind-tfstate-lock"
-            encrypt        = true
-          }
+          backend "local" {}
         }
         EOF
         
         cd main_module
-        terraform init -reconfigure
+        terraform init
         terraform destroy -var-file=../environments/${TF_ENV}.tfvars -auto-approve
