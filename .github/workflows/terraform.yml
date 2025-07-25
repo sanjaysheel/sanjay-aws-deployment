@@ -186,7 +186,7 @@ jobs:
         terraform init
         
         # Run plan
-        terraform plan -var-file=environments/${{ github.event.inputs.environment }}.tfvars -no-color
+        terraform plan -var-file=environments/${TF_ENV}.tfvars -no-color
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
@@ -210,13 +210,13 @@ jobs:
         terraform init
         
         # Handle existing resources for all environments
-        echo "Handling existing resources for ${{ github.event.inputs.environment }} environment"
+        echo "Handling existing resources for ${TF_ENV} environment"
         
         # First refresh state to detect existing resources
-        terraform apply -refresh-only -auto-approve -var-file=environments/${{ github.event.inputs.environment }}.tfvars
+        terraform apply -refresh-only -auto-approve -var-file=environments/${TF_ENV}.tfvars
         
         # Then import existing resources if needed
-        if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+        if [ "${TF_ENV}" == "prod" ]; then
           # Try to import IAM role if it exists
           aws iam get-role --role-name environment-prod-role >/dev/null 2>&1 && \
           terraform import -var-file=environments/prod.tfvars aws_iam_role.environment_role environment-prod-role || true
