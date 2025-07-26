@@ -23,4 +23,8 @@ resource "aws_dynamodb_table" "this" {
   tags = merge({
     Name = "ind-${var.environment}-${var.table_name}"
   }, var.tags)
+  
+  lifecycle {
+    ignore_changes = [billing_mode, hash_key, range_key, attribute]
+  }
 }

@@ -198,6 +198,13 @@ jobs:
     - name: Terraform Plan
       if: ${{ github.event.inputs.terraform_action == 'plan' }}
       run: |
+        # Set region based on environment
+        if [ "${TF_ENV}" == "prod" ]; then
+          REGION="us-west-2"
+        else
+          REGION="us-west-1"
+        fi
+        
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
         rm -rf .terraform
@@ -207,7 +214,7 @@ jobs:
           backend "s3" {
             bucket         = "ind-tfstate-bucket"
             key            = "terraform/${TF_ENV}/terraform.tfstate"
-            region         = "us-east-1"
+            region         = "$REGION"
             dynamodb_table = "ind-tfstate-lock"
           }
         }
@@ -263,6 +270,14 @@ jobs:
         # Import S3 bucket for the selected environment if it exists and is not managed by Terraform
         if aws s3api head-bucket --bucket ind-${TF_ENV}-data-test-1 2>/dev/null; then
           terraform import module.s3_bucket.aws_s3_bucket.this ind-${TF_ENV}-data-test-1 || true
+        fi
+        
+        # Import DynamoDB table if it exists and not in state
+        if aws dynamodb describe-table --table-name ind-${TF_ENV}-user-data 2>/dev/null; then
+          echo "DynamoDB table ind-${TF_ENV}-user-data exists, importing..."
+          terraform import module.dynamodb_table.aws_dynamodb_table.this ind-${TF_ENV}-user-data || echo "Table already in state or import failed"
+        else
+          echo "DynamoDB table ind-${TF_ENV}-user-data does not exist, will be created"
         fi
 
         # Import existing IAM roles if needed
