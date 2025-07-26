@@ -204,6 +204,7 @@ jobs:
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
+      if: ${{ github.event.inputs.terraform_action == 'apply' }}
       run: |
         # Empty S3 buckets before operations, only if bucket exists
         echo "Emptying S3 buckets for ${TF_ENV} environment"
@@ -268,6 +269,7 @@ jobs:
 
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
+      if: ${{ github.event.inputs.terraform_action == 'destroy' }}
       run: |
         # First, clear the S3 bucket for current environment, only if bucket exists
         if aws s3api head-bucket --bucket ind-${TF_ENV}-data-test-1 2>/dev/null; then
