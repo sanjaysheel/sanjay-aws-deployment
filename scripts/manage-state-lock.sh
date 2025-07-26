@@ -17,6 +17,14 @@ case $ACTION in
     "create")
         echo "Creating state lock for environment: $ENVIRONMENT"
         
+        # Check if old lock file exists
+        OLD_LOCK_EXISTS=false
+        if aws s3api head-object --bucket $BUCKET --key $LOCK_KEY 2>/dev/null; then
+            echo "Old lock file exists, backing up..."
+            aws s3 cp s3://$BUCKET/$LOCK_KEY s3://$BUCKET/$LOCK_KEY.backup
+            OLD_LOCK_EXISTS=true
+        fi
+        
         LOCK_CONTENT=$(cat <<EOF
 {
     "ID": "$LOCK_ID",
@@ -29,19 +37,39 @@ case $ACTION in
 EOF
 )
         
-        echo "$LOCK_CONTENT" | aws s3 cp - s3://$BUCKET/$LOCK_KEY
-        
-        aws dynamodb put-item \
-            --table-name $DYNAMODB_TABLE \
-            --item "{
-                \"LockID\": {\"S\": \"$LOCK_ID\"},
-                \"Environment\": {\"S\": \"$ENVIRONMENT\"},
-                \"S3Key\": {\"S\": \"$LOCK_KEY\"},
-                \"Created\": {\"S\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"},
-                \"Status\": {\"S\": \"ACTIVE\"}
-            }"
-        
-        echo "TERRAFORM_LOCK_ID=$LOCK_ID" >> $GITHUB_ENV
+        # Try to create new lock file
+        if echo "$LOCK_CONTENT" | aws s3 cp - s3://$BUCKET/$LOCK_KEY; then
+            echo "New lock file created successfully"
+            
+            # Remove backup since new file was created
+            if [ "$OLD_LOCK_EXISTS" = true ]; then
+                aws s3 rm s3://$BUCKET/$LOCK_KEY.backup || true
+            fi
+            
+            # Update DynamoDB with new lock
+            aws dynamodb put-item \
+                --table-name $DYNAMODB_TABLE \
+                --item "{
+                    \"LockID\": {\"S\": \"$LOCK_ID\"},
+                    \"Environment\": {\"S\": \"$ENVIRONMENT\"},
+                    \"S3Key\": {\"S\": \"$LOCK_KEY\"},
+                    \"Created\": {\"S\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"},
+                    \"Status\": {\"S\": \"ACTIVE\"}
+                }"
+            
+            echo "TERRAFORM_LOCK_ID=$LOCK_ID" >> $GITHUB_ENV
+        else
+            echo "Failed to create new lock file"
+            
+            # Restore old lock file if it existed
+            if [ "$OLD_LOCK_EXISTS" = true ]; then
+                echo "Restoring old lock file..."
+                aws s3 cp s3://$BUCKET/$LOCK_KEY.backup s3://$BUCKET/$LOCK_KEY
+                aws s3 rm s3://$BUCKET/$LOCK_KEY.backup || true
+            fi
+            
+            exit 1
+        fi
         ;;
         
     "release")
