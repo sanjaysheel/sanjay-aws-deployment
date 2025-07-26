@@ -1,258 +1,339 @@
-# sanjay-aws-deployment
-Got it! Here's a **documentation-style** README for setting up GitHub Actions for deploying Terraform into AWS. This is intended to provide clear, concise instructions that users can follow to set up and understand the process.
+# Terraform AWS Deployment with GitHub Actions
+
+A comprehensive Infrastructure as Code (IaC) solution for deploying AWS resources using Terraform with GitHub Actions CI/CD pipeline, featuring multi-environment support, remote state management, and automated deployments.
+
+## 🏗️ Architecture Overview
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   GitHub Repo   │───▶│  GitHub Actions  │───▶│   AWS Account   │
+│                 │    │                  │    │                 │
+│ • Terraform     │    │ • Plan/Apply     │    │ • S3 Buckets    │
+│ • Workflows     │    │ • Multi-env      │    │ • DynamoDB      │
+│ • Modules       │    │ • State Lock     │    │ • IAM Roles     │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+## 📁 Project Structure
+
+```
+├── .github/workflows/
+│   └── terraform.yml           # GitHub Actions CI/CD pipeline
+├── environments/
+│   ├── dev.tfvars             # Development environment variables
+│   ├── stag.tfvars            # Staging environment variables
+│   └── prod.tfvars            # Production environment variables
+├── main_module/
+│   ├── s3.tf                  # S3 bucket configuration
+│   ├── dynamodb.tf            # DynamoDB table configuration
+│   ├── provider.tf            # AWS provider setup
+│   ├── variables.tf           # Input variables
+│   └── outputs.tf             # Output values
+├── modules/aws/
+│   ├── s3/                    # Reusable S3 module
+│   ├── dynamodb/              # Reusable DynamoDB module
+│   └── sqs/                   # Reusable SQS module
+├── scripts/
+│   └── manage-state-lock.sh   # Custom state lock management
+├── setup/
+│   └── state-bucket.tf        # Initial state bucket setup
+├── backend.tf.tmpl            # Backend configuration template
+└── README.md                  # This documentation
+```
+
+## 🚀 Quick Start
+
+### 1. Initial Setup
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd sanjay-aws-deployment
+
+# Create initial state bucket (one-time setup)
+cd setup
+terraform init
+terraform apply
+cd ..
+```
+
+### 2. Configure GitHub Secrets
+
+Add these secrets in your GitHub repository (`Settings > Secrets and variables > Actions`):
+
+| Secret Name | Description | Example |
+|-------------|-------------|----------|
+| `AWS_ACCESS_KEY_ID` | AWS Access Key | `AKIA...` |
+| `AWS_SECRET_ACCESS_KEY` | AWS Secret Key | `wJalr...` |
+| `AWS_REGION` | Default AWS Region | `us-east-1` |
+
+### 3. Deploy Infrastructure
+
+1. Go to **Actions** tab in GitHub
+2. Select **"Terraform AWS Deployment"**
+3. Click **"Run workflow"**
+4. Choose:
+   - **Environment**: `dev`, `stag`, or `prod`
+   - **Action**: `plan`, `apply`, or `destroy`
+   - **Region**: Target AWS region
+5. Click **"Run workflow"**
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Each environment has its own configuration file:
+
+```hcl
+# environments/dev.tfvars
+environment = "dev"
+aws_region  = "us-west-1"
+
+# environments/prod.tfvars
+environment = "prod"
+aws_region  = "us-east-1"
+```
+
+### Backend Configuration
+
+The system automatically configures remote state:
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "ind-tfstate-bucket"
+    key            = "terraform/{environment}/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "ind-tfstate-lock"
+  }
+}
+```
+
+## 🏭 Modules
+
+### S3 Module
+
+Creates S3 buckets with environment-specific naming:
+
+```hcl
+module "s3_bucket" {
+  source        = "../modules/aws/s3"
+  bucket_name   = "data-test-first"
+  environment   = var.environment
+  tags          = local.common_tags
+  force_destroy = true
+}
+```
+
+**Features:**
+- Unique bucket naming with random suffix
+- Versioning enabled
+- Environment-based configuration
+- Proper ownership controls
+
+### DynamoDB Module
+
+Creates DynamoDB tables for application data:
+
+```hcl
+module "dynamodb_table" {
+  source     = "../modules/aws/dynamodb"
+  table_name = "user-data"
+  environment = var.environment
+  tags       = local.common_tags
+}
+```
+
+## 🔄 CI/CD Pipeline
+
+### Workflow Triggers
+
+- **Push to main**: Automatic plan
+- **Pull Request**: Automatic plan
+- **Manual Dispatch**: Full control over environment and action
+
+### Workflow Steps
+
+1. **Setup**: Checkout code, configure Terraform and AWS credentials
+2. **State Management**: Check/create state bucket and DynamoDB table
+3. **Lock Management**: Custom state locking with audit trail
+4. **Terraform Operations**: Init, plan, apply, or destroy
+5. **Resource Import**: Handle existing resources
+6. **Cleanup**: Update lock status and cleanup old entries
+
+### Manual Workflow Options
+
+| Input | Options | Description |
+|-------|---------|-------------|
+| Environment | `dev`, `stag`, `prod` | Target environment |
+| Terraform Action | `init`, `plan`, `apply`, `destroy` | Operation to perform |
+| AWS Region | `us-west-1 (dev)`, `us-west-2 (stag)`, `us-east-1 (prod)` | Target region |
+
+## 🔒 Security Features
+
+### State Management
+- **Remote State**: Stored in S3 with versioning
+- **State Locking**: DynamoDB prevents concurrent modifications
+- **Encryption**: Server-side encryption for state files
+- **Access Control**: Bucket policies restrict public access
+
+### Custom Lock Management
+
+The `manage-state-lock.sh` script provides:
+- Lock creation with metadata
+- Lock status checking
+- Automatic cleanup of old locks
+- Audit trail in DynamoDB
+
+```bash
+# Create lock
+./scripts/manage-state-lock.sh dev create
+
+# Check lock status
+./scripts/manage-state-lock.sh dev check
+
+# Release lock
+./scripts/manage-state-lock.sh dev release
+```
+
+## 🌍 Multi-Environment Support
+
+### Environment Isolation
+
+| Environment | Region | Purpose |
+|-------------|--------|---------|
+| `dev` | us-west-1 | Development and testing |
+| `stag` | us-west-2 | Staging and pre-production |
+| `prod` | us-east-1 | Production workloads |
+
+### Resource Naming Convention
+
+```
+ind-{environment}-{resource-name}-{random-suffix}
+```
+
+Examples:
+- `ind-dev-data-test-first-abc123`
+- `ind-prod-user-data-xyz789`
+
+## 📊 Monitoring and Observability
+
+### State Lock Tracking
+
+The system tracks all state operations in DynamoDB:
+
+```json
+{
+  "LockID": "terraform-dev-1234567890",
+  "ProcessID": "github-actions-123-1234567890",
+  "Environment": "dev",
+  "Status": "ACTIVE",
+  "Created": "2024-01-01T12:00:00Z"
+}
+```
+
+### Workflow Outputs
+
+- S3 bucket listings
+- DynamoDB lock status
+- Resource import results
+- Terraform plan/apply outputs
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+#### State Lock Issues
+```bash
+# Check current locks
+./scripts/manage-state-lock.sh dev check
+
+# Force release if needed
+./scripts/manage-state-lock.sh dev release
+```
+
+#### Resource Import Conflicts
+The workflow automatically imports existing resources:
+- S3 buckets
+- DynamoDB tables
+- IAM roles
+
+#### Workflow Not Triggering
+1. Ensure workflow file exists in target branch
+2. Check GitHub Actions permissions
+3. Verify secrets are configured
+
+### Debug Commands
+
+```bash
+# List S3 state objects
+aws s3 ls s3://ind-tfstate-bucket/terraform/
+
+# Check DynamoDB locks
+aws dynamodb scan --table-name ind-tfstate-lock
+
+# Verify bucket exists
+aws s3api head-bucket --bucket ind-tfstate-bucket
+```
+
+## 📋 Best Practices
+
+### Development Workflow
+1. Create feature branch
+2. Make infrastructure changes
+3. Test in `dev` environment
+4. Create pull request (triggers plan)
+5. Review and merge
+6. Deploy to `stag` for testing
+7. Deploy to `prod` after approval
+
+### Security Guidelines
+- Never commit AWS credentials
+- Use least privilege IAM policies
+- Enable MFA for production deployments
+- Regularly rotate access keys
+- Monitor CloudTrail logs
+
+### State Management
+- Always use remote state
+- Enable state file versioning
+- Implement state locking
+- Regular state file backups
+- Monitor state file access
+
+## 🔄 Maintenance
+
+### Regular Tasks
+- Update Terraform version in workflow
+- Rotate AWS credentials
+- Clean up old state lock entries
+- Review and update IAM policies
+- Monitor resource costs
+
+### Backup Strategy
+- State files: Automatic S3 versioning
+- DynamoDB: Point-in-time recovery enabled
+- Code: Git repository with multiple remotes
+
+## 📚 Additional Resources
+
+- [Terraform Documentation](https://www.terraform.io/docs)
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+- [AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [Terraform Best Practices](https://www.terraform.io/docs/cloud/guides/recommended-practices/index.html)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test in development environment
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-# Terraform Deployment with GitHub Actions
-
-This repository provides a setup for deploying infrastructure to AWS using **Terraform** and **GitHub Actions**. The process includes automatic and manual deployment to multiple environments such as **development**, **stag**, and **production**.
-
----
-
-## Table of Contents
-
-* [Overview](#overview)
-* [Prerequisites](#prerequisites)
-* [Setup Instructions](#setup-instructions)
-
-  * [1. AWS Setup](#1-aws-setup)
-  * [2. Terraform Setup](#2-terraform-setup)
-  * [3. GitHub Secrets Setup](#3-github-secrets-setup)
-  * [4. Workflow Configuration](#4-workflow-configuration)
-  * [5. Triggering Deployments](#5-triggering-deployments)
-* [Branch Configuration](#branch-configuration)
-* [Best Practices](#best-practices)
-* [Troubleshooting](#troubleshooting)
-
----
-
-## Overview
-
-This setup uses **GitHub Actions** to automate the deployment of infrastructure to **AWS** using **Terraform**. It provides flexibility to deploy to different environments (e.g., `dev`, `stag`, `prod`) within the same AWS account. The workflow can be triggered automatically on `push` or `pull_request`, and it also supports manual triggering via the GitHub Actions UI.
-
-### Key Features:
-
-* **Automatic deployment** on push and pull requests.
-* **Manual deployment** using `workflow_dispatch`.
-* **Environment isolation** using Terraform workspaces (`dev`, `stag`, `prod`).
-* **Secure AWS credentials** via GitHub Secrets.
-* **Customizable workflow** to run Terraform commands like `init`, `plan`, `apply`, and `destroy`.
-
----
-
-## Prerequisites
-
-Before setting up the GitHub Actions workflow, ensure you have:
-
-* An **AWS account** with the appropriate IAM permissions to manage resources using Terraform.
-* **Terraform** installed on your local machine (optional for local testing).
-* An active **GitHub repository** to store and manage the workflow files.
-* AWS **Access Key ID** and **Secret Access Key** stored as GitHub Secrets.
-
----
-
-## Setup Instructions
-
-### 1. AWS Setup
-
-You need to set up AWS credentials for GitHub Actions to authenticate and deploy resources.
-
-1. **Create an IAM User in AWS**:
-
-   * Go to **IAM > Users** in the AWS Management Console.
-   * Create a new user with programmatic access and the necessary permissions for Terraform (e.g., `AdministratorAccess` or a more restrictive set based on your needs).
-
-2. **Store AWS Credentials in GitHub Secrets**:
-
-   * Go to your GitHub repository **Settings > Secrets**.
-   * Add the following secrets:
-
-     * `AWS_ACCESS_KEY_ID`: Your IAM user’s access key ID.
-     * `AWS_SECRET_ACCESS_KEY`: Your IAM user’s secret access key.
-     * `AWS_REGION`: The AWS region where you want to deploy (e.g., `us-east-1`).
-
----
-
-### 2. Terraform Setup
-
-1. **Configure Your Terraform Files**:
-
-   * Add your Terraform configuration files (`main.tf`, `variables.tf`, etc.) to the repository.
-   * Ensure that your Terraform configuration uses workspaces for environment isolation:
-
-     ```hcl
-     terraform {
-       backend "s3" {
-         bucket = "your-terraform-state-bucket"
-         key    = "state/${terraform.workspace}/terraform.tfstate"
-         region = "us-east-1"
-       }
-     }
-     ```
-   * Use a `.tfvars` file to define environment-specific variables:
-
-     * `dev.tfvars`, `prod.tfvars`, etc.
-
-2. **Initialize Terraform Locally (Optional)**:
-
-   * Run `terraform init` locally to ensure that all required providers are downloaded.
-   * This step is not necessary for GitHub Actions as it will automatically run `terraform init` on each workflow execution.
-
----
-
-### 3. GitHub Secrets Setup
-
-In your GitHub repository:
-
-1. Go to **Settings > Secrets**.
-2. Add the following secrets:
-
-   * `AWS_ACCESS_KEY_ID`
-   * `AWS_SECRET_ACCESS_KEY`
-   * `AWS_REGION`
-
-These secrets are required for AWS authentication and deployment in GitHub Actions.
-
----
-
-### 4. Workflow Configuration
-
-1. **Create the GitHub Actions Workflow**:
-
-   * In the root of your repository, create a folder `.github/workflows/`.
-   * Inside this folder, create a workflow file, e.g., `terraform.yml`.
-
-2. **Sample Workflow File** (`.github/workflows/terraform.yml`):
-
-   ```yaml
-   name: Terraform AWS Deployment
-
-   on:
-     push:
-       branches:
-         - '**'  # Trigger on any push to any branch
-     pull_request:
-       branches:
-         - '**'  # Trigger on any pull request to any branch
-     workflow_dispatch:
-       inputs:
-         environment:
-           description: 'Choose your environment'
-           required: true
-           default: 'development'
-           type: choice
-           options:
-             - development
-             - stag
-             - production
-         terraform_action:
-           description: 'Select Terraform action'
-           required: true
-           default: 'apply'
-           type: choice
-           options:
-             - init
-             - plan
-             - apply
-             - destroy
-
-   jobs:
-     terraform:
-       runs-on: ubuntu-latest
-
-       steps:
-         - name: Checkout Code
-           uses: actions/checkout@v2
-
-         - name: Set up Terraform
-           uses: hashicorp/setup-terraform@v1
-           with:
-             terraform_version: '1.4.0'
-
-         - name: Configure AWS credentials
-           uses: aws-actions/configure-aws-credentials@v1
-           with:
-             aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-             aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-             aws-region: ${{ secrets.AWS_REGION }}
-
-         - name: Initialize Terraform
-           run: terraform init
-
-         - name: Apply Terraform
-           if: ${{ github.event.inputs.terraform_action == 'apply' }}
-           run: terraform apply -auto-approve
-   ```
-
-This file defines the steps to:
-
-* Checkout the code.
-* Set up Terraform.
-* Configure AWS credentials.
-* Run `terraform init`, `plan`, and `apply` based on the user input.
-
----
-
-### 5. Triggering Deployments
-
-You can trigger the deployment workflow both **automatically** and **manually**:
-
-1. **Automatic Triggering**:
-
-   * The workflow is automatically triggered on **push** or **pull request** events for **any branch**.
-2. **Manual Triggering**:
-
-   * Navigate to the **Actions** tab of your GitHub repository.
-   * Select the workflow you want to run (e.g., `Terraform AWS Deployment`).
-   * Click **Run workflow**.
-   * Choose the environment (e.g., `development`, `production`, etc.) and the Terraform action (`init`, `plan`, `apply`, or `destroy`).
-   * Click **Run workflow** to trigger the deployment.
-
----
-
-## Branch Configuration
-
-To ensure that the workflow is available for all branches:
-
-1. **Merge the Workflow into All Branches**:
-
-   * If the workflow file is initially only in `main`, ensure it's merged into any other branches where you want to trigger the workflow.
-   * Use the following command to merge the workflow into other branches:
-
-     ```bash
-     git checkout <branch_name>
-     git merge main  # Merge workflow file from the main branch
-     git push origin <branch_name>
-     ```
-
-2. **Automatic Deployment**:
-
-   * The workflow will automatically run for any branch on `push` or `pull_request` events, as defined in the workflow trigger section.
-
----
-
-## Best Practices
-
-* **Isolate State**: Use Terraform workspaces to isolate environments (e.g., `dev`, `stag`, `prod`).
-* **Use Remote State**: Always store your Terraform state in a remote backend (e.g., S3 with DynamoDB for state locking).
-* **Secure Secrets**: Never hardcode sensitive data in your workflow files. Always use GitHub Secrets for credentials and sensitive information.
-
----
-
-## Troubleshooting
-
-* **Workflow Not Triggering**: Ensure that the `.github/workflows/terraform.yml` file exists in the branch you’re trying to deploy from.
-* **AWS Credentials Issue**: Double-check that `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` are properly set in GitHub Secrets.
-* **Terraform Workspace Issues**: Ensure that the correct workspace is selected before running Terraform commands.
-
----
-
-### Conclusion
-
-This setup provides a robust mechanism for automating Terraform deployments to AWS using GitHub Actions. It supports both automatic deployments (on `push` and `pull_request`) and manual deployments via the GitHub UI. By using Terraform workspaces and remote state management, each environment remains isolated and secure.
-
-For any further assistance, feel free to reach out or consult the [GitHub Actions documentation](https://docs.github.com/en/actions).
-
----
-
-This README provides clear documentation for setting up, configuring, and using the GitHub Actions workflow for deploying Terraform to AWS. Let me know if you need additional changes!
+**Need Help?** Check the troubleshooting section or create an issue in the repository.
