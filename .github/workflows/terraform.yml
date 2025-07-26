@@ -199,16 +199,20 @@ jobs:
     - name: Terraform Apply
       if: ${{ env.TF_ACTION == 'apply' }}
       run: |
-        # Empty S3 buckets before operations
+        # Empty S3 buckets before operations, only if bucket exists
         echo "Emptying S3 buckets for ${TF_ENV} environment"
-        aws s3 rm s3://ind-${TF_ENV}-data-test-1 --recursive || true
-        VERSIONS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: Versions[].{Key: Key, VersionId: VersionId}}' --output json)
-        if [ "$(echo $VERSIONS_JSON | jq '.Objects | length')" -gt 0 ]; then
-          aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$VERSIONS_JSON"
-        fi
-        DELETEMARKERS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: DeleteMarkers[].{Key: Key, VersionId: VersionId}}' --output json)
-        if [ "$(echo $DELETEMARKERS_JSON | jq '.Objects | length')" -gt 0 ]; then
-          aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$DELETEMARKERS_JSON"
+        if aws s3api head-bucket --bucket ind-${TF_ENV}-data-test-1 2>/dev/null; then
+          aws s3 rm s3://ind-${TF_ENV}-data-test-1 --recursive || true
+          VERSIONS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: Versions[].{Key: Key, VersionId: VersionId}}' --output json)
+          if [ "$(echo $VERSIONS_JSON | jq '.Objects | length')" -gt 0 ]; then
+            aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$VERSIONS_JSON"
+          fi
+          DELETEMARKERS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: DeleteMarkers[].{Key: Key, VersionId: VersionId}}' --output json)
+          if [ "$(echo $DELETEMARKERS_JSON | jq '.Objects | length')" -gt 0 ]; then
+            aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$DELETEMARKERS_JSON"
+          fi
+        else
+          echo "Bucket ind-${TF_ENV}-data-test-1 does not exist, skipping emptying."
         fi
         
         rm -f terraform.tfstate*
@@ -251,15 +255,19 @@ jobs:
     - name: Terraform Destroy
       if: ${{ env.TF_ACTION == 'destroy' }}
       run: |
-        # First, clear the S3 bucket for current environment
-        aws s3 rm s3://ind-${TF_ENV}-data-test-1 --recursive || true
-        VERSIONS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: Versions[].{Key: Key, VersionId: VersionId}}' --output json)
-        if [ "$(echo $VERSIONS_JSON | jq '.Objects | length')" -gt 0 ]; then
-          aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$VERSIONS_JSON"
-        fi
-        DELETEMARKERS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: DeleteMarkers[].{Key: Key, VersionId: VersionId}}' --output json)
-        if [ "$(echo $DELETEMARKERS_JSON | jq '.Objects | length')" -gt 0 ]; then
-          aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$DELETEMARKERS_JSON"
+        # First, clear the S3 bucket for current environment, only if bucket exists
+        if aws s3api head-bucket --bucket ind-${TF_ENV}-data-test-1 2>/dev/null; then
+          aws s3 rm s3://ind-${TF_ENV}-data-test-1 --recursive || true
+          VERSIONS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: Versions[].{Key: Key, VersionId: VersionId}}' --output json)
+          if [ "$(echo $VERSIONS_JSON | jq '.Objects | length')" -gt 0 ]; then
+            aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$VERSIONS_JSON"
+          fi
+          DELETEMARKERS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: DeleteMarkers[].{Key: Key, VersionId: VersionId}}' --output json)
+          if [ "$(echo $DELETEMARKERS_JSON | jq '.Objects | length')" -gt 0 ]; then
+            aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$DELETEMARKERS_JSON"
+          fi
+        else
+          echo "Bucket ind-${TF_ENV}-data-test-1 does not exist, skipping emptying."
         fi
 
         rm -f terraform.tfstate*
