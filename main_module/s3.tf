@@ -5,11 +5,3 @@ module "s3_bucket" {
   tags          = local.common_tags   # Pass common tags to the module
   force_destroy = true                # Allow deletion of non-empty bucket
 }
-
-output "bucket_name" {
-  value = module.s3_bucket.bucket_name
-}
-
-output "bucket_arn" {
-  value = module.s3_bucket.bucket_arn
-}
