@@ -1,6 +1,6 @@
 module "dynamodb_table" {
   source      = "../modules/aws/dynamodb"
-  table_name  = "ind-state-lock-file-update"
+  table_name  = "user-data"
   environment = var.environment
   hash_key    = "id"
 

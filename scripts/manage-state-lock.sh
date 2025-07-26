@@ -12,6 +12,7 @@ fi
 
 LOCK_KEY="terraform/${ENVIRONMENT}/terraform.tfstate.lock"
 LOCK_ID="terraform-${ENVIRONMENT}-$(date +%s)"
+OPERATION_TYPE="terraform-${ACTION}"
 
 case $ACTION in
     "create")
@@ -28,11 +29,13 @@ case $ACTION in
         LOCK_CONTENT=$(cat <<EOF
 {
     "ID": "$LOCK_ID",
-    "Operation": "terraform-apply",
+    "Operation": "$OPERATION_TYPE",
     "Info": "Terraform lock for $ENVIRONMENT environment",
     "Who": "github-actions",
     "Created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-    "Path": "terraform/${ENVIRONMENT}/terraform.tfstate"
+    "Path": "terraform/${ENVIRONMENT}/terraform.tfstate",
+    "Status": "ACTIVE",
+    "Environment": "$ENVIRONMENT"
 }
 EOF
 )
