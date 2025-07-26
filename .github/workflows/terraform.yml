@@ -233,7 +233,10 @@ jobs:
         }
         EOF
         cd main_module
-        terraform init
+        echo "--- backend.tf contents ---"
+        cat ../backend.tf
+        echo "--- Running terraform init ---"
+        terraform init -input=false -no-color
 
         # Import S3 bucket for the selected environment if it exists and is not managed by Terraform
         if aws s3api head-bucket --bucket ind-${TF_ENV}-data-test-1 2>/dev/null; then
@@ -253,8 +256,8 @@ jobs:
         fi
 
         # Sleep to allow observation of lock file in S3
-        echo "Sleeping for 60 seconds before apply to allow lock file observation..."
-        sleep 60
+        echo "Sleeping for 5 seconds before apply to allow lock file observation..."
+        sleep 5
         terraform apply -var-file=../environments/${TF_ENV}.tfvars -auto-approve
 
     # Verify S3 state bucket and DynamoDB table after apply
@@ -301,10 +304,13 @@ jobs:
         EOF
 
         cd main_module
-        terraform init
+        echo "--- backend.tf contents ---"
+        cat ../backend.tf
+        echo "--- Running terraform init ---"
+        terraform init -input=false -no-color
         # Sleep to allow observation of lock file in S3
-        echo "Sleeping for 60 seconds before destroy to allow lock file observation..."
-        sleep 60
+        echo "Sleeping for 5 seconds before destroy to allow lock file observation..."
+        sleep 5
         terraform destroy -var-file=../environments/${TF_ENV}.tfvars -auto-approve
 
     # Verify S3 state bucket and DynamoDB table after destroy
