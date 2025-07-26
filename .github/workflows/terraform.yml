@@ -139,7 +139,7 @@ jobs:
         fi
 
         # Also try S3 direct unlock
-        aws s3api put-object --bucket ind-tfstate-bucket --key terraform/$ENV/terraform.tfstate.lock --body /dev/null || true
+        # aws s3api put-object --bucket ind-tfstate-bucket --key terraform/$ENV/terraform.tfstate.lock --body /dev/null || true
 
     # Set Environment and Action Variables
     - name: Set Environment and Action Variables
