@@ -1,10 +1,16 @@
+resource "random_string" "bucket_suffix" {
+  length  = 6
+  upper   = false
+  special = false
+}
 
 locals {
-  effective_env = var.environment == "stag" ? "dev" : var.environment
+  effective_env      = var.environment == "stag" ? "dev" : var.environment
+  unique_bucket_name = "ind-${local.effective_env}-${var.bucket_name}-${random_string.bucket_suffix.result}"
 }
 
 resource "aws_s3_bucket" "this" {
-  bucket        = "ind-${local.effective_env}-${var.bucket_name}"
+  bucket        = local.unique_bucket_name
   force_destroy = var.force_destroy
 
   tags = merge({
