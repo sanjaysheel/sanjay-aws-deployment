@@ -161,7 +161,7 @@ jobs:
 
     # Terraform Init (if selected)
     - name: Terraform Init
-      if: ${{ env.TF_ACTION == 'init' }}
+      if: ${{ github.event.inputs.terraform_action == 'init' }}
       run: |
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
@@ -182,7 +182,7 @@ jobs:
 
     # Terraform Plan (if selected)
     - name: Terraform Plan
-      if: ${{ env.TF_ACTION == 'plan' }}
+      if: ${{ github.event.inputs.terraform_action == 'plan' }}
       run: |
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
@@ -259,7 +259,7 @@ jobs:
 
     # Verify S3 state bucket and DynamoDB table after apply
     - name: Verify S3 state bucket and DynamoDB table (post-apply)
-      if: ${{ env.TF_ACTION == 'apply' }}
+      if: ${{ github.event.inputs.terraform_action == 'apply' }}
       run: |
         echo "Listing objects in S3 state bucket ind-tfstate-bucket:"
         aws s3 ls s3://ind-tfstate-bucket/terraform/ || echo "No state folder yet."
@@ -306,7 +306,7 @@ jobs:
 
     # Verify S3 state bucket and DynamoDB table after destroy
     - name: Verify S3 state bucket and DynamoDB table (post-destroy)
-      if: ${{ env.TF_ACTION == 'destroy' }}
+      if: ${{ github.event.inputs.terraform_action == 'destroy' }}
       run: |
         echo "Listing objects in S3 state bucket ind-tfstate-bucket:"
         aws s3 ls s3://ind-tfstate-bucket/terraform/ || echo "No state folder yet."
