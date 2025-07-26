@@ -49,16 +49,20 @@ EOF
                 aws s3 rm s3://$BUCKET/$LOCK_KEY.backup || true
             fi
             
-            # Update DynamoDB with new lock
+            # Update DynamoDB with new lock including ProcessID
+            PROCESS_ID="github-actions-$$-$(date +%s)"
             aws dynamodb put-item \
                 --table-name $DYNAMODB_TABLE \
                 --item "{
                     \"LockID\": {\"S\": \"$LOCK_ID\"},
+                    \"ProcessID\": {\"S\": \"$PROCESS_ID\"},
                     \"Environment\": {\"S\": \"$ENVIRONMENT\"},
                     \"S3Key\": {\"S\": \"$LOCK_KEY\"},
                     \"Created\": {\"S\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"},
                     \"Status\": {\"S\": \"ACTIVE\"}
                 }"
+            
+            echo "Lock created with Process ID: $PROCESS_ID"
             
             echo "TERRAFORM_LOCK_ID=$LOCK_ID" >> $GITHUB_ENV
         else

@@ -307,20 +307,26 @@ jobs:
         
         # Update lock status to COMPLETED but keep file in S3
         cd ..
-        aws dynamodb scan \
+        ACTIVE_LOCKS=$(aws dynamodb scan \
             --table-name ind-tfstate-lock \
             --filter-expression "Environment = :env AND #status = :status" \
             --expression-attribute-names '{"#status": "Status"}' \
             --expression-attribute-values '{":env": {"S": "'${TF_ENV}'"}, ":status": {"S": "ACTIVE"}}' \
             --query 'Items[].LockID.S' \
-            --output text | while read LOCK_ID; do
-                aws dynamodb update-item \
-                    --table-name ind-tfstate-lock \
-                    --key "{\"LockID\": {\"S\": \"$LOCK_ID\"}}" \
-                    --update-expression "SET #status = :status, Completed = :completed" \
-                    --expression-attribute-names '{"#status": "Status"}' \
-                    --expression-attribute-values '{":status": {"S": "COMPLETED"}, ":completed": {"S": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}}'
+            --output text)
+        
+        if [ -n "$ACTIVE_LOCKS" ]; then
+            echo "$ACTIVE_LOCKS" | tr '\t' '\n' | while read -r LOCK_ID; do
+                if [ -n "$LOCK_ID" ]; then
+                    aws dynamodb update-item \
+                        --table-name ind-tfstate-lock \
+                        --key "{\"LockID\": {\"S\": \"$LOCK_ID\"}}" \
+                        --update-expression "SET #status = :status, Completed = :completed" \
+                        --expression-attribute-names '{"#status": "Status"}' \
+                        --expression-attribute-values '{":status": {"S": "COMPLETED"}, ":completed": {"S": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}}'
+                fi
             done
+        fi
         echo "State lock file preserved in S3 for environment: ${TF_ENV}"
 
     # Verify S3 state bucket and DynamoDB table after apply
