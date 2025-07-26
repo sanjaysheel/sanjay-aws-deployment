@@ -213,7 +213,13 @@ jobs:
         cd main_module
         terraform init
         
-        # Import existing resources if needed
+
+        # Import S3 bucket for the selected environment if it exists and is not managed by Terraform
+        if aws s3api head-bucket --bucket ind-${TF_ENV}-data-test-1 2>/dev/null; then
+          terraform import module.s3_bucket.aws_s3_bucket.this ind-${TF_ENV}-data-test-1 || true
+        fi
+
+        # Import existing IAM roles if needed
         if [ "${TF_ENV}" == "prod" ]; then
           aws iam get-role --role-name environment-prod-role >/dev/null 2>&1 && \
           terraform import -var-file=../environments/prod.tfvars aws_iam_role.environment_role environment-prod-role || true
