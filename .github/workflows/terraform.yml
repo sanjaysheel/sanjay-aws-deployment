@@ -31,12 +31,12 @@ on:
       aws_region:
         description: 'Select AWS Region'
         required: true
-        default: 'us-west-1'
+        default: 'us-west-1 (dev)'
         type: choice
         options:
-          - us-west-1
-          - us-west-2
-          - us-east-1
+          - us-west-1 (dev)
+          - us-west-2 (stag)
+          - us-east-1 (prod)
 
 jobs:
   terraform:
@@ -169,7 +169,10 @@ jobs:
       run: |
         ENV="${{ github.event.inputs.environment || 'dev' }}"
         ACTION="${{ github.event.inputs.terraform_action || 'plan' }}"
-        REGION="${{ github.event.inputs.aws_region || 'us-west-1' }}"
+        REGION_SELECTION="${{ github.event.inputs.aws_region || 'us-west-1 (dev)' }}"
+        
+        # Extract region code from selection
+        REGION=$(echo "$REGION_SELECTION" | cut -d' ' -f1)
         
         echo "Environment: $ENV"
         echo "Terraform Action: $ACTION"
