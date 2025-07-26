@@ -284,22 +284,21 @@ jobs:
         
         # Update lock status to COMPLETED but keep file in S3
         cd ..
-        ./scripts/manage-state-lock.sh ${TF_ENV} release
-        # aws dynamodb scan \
-        #     --table-name ind-tfstate-lock \
-        #     --filter-expression "Environment = :env AND #status = :status" \
-        #     --expression-attribute-names '{"#status": "Status"}' \
-        #     --expression-attribute-values '{":env": {"S": "'${TF_ENV}'"}, ":status": {"S": "ACTIVE"}}' \
-        #     --query 'Items[].LockID.S' \
-        #     --output text | while read LOCK_ID; do
-        #         aws dynamodb update-item \
-        #             --table-name ind-tfstate-lock \
-        #             --key "{\"LockID\": {\"S\": \"$LOCK_ID\"}}" \
-        #             --update-expression "SET #status = :status, Completed = :completed" \
-        #             --expression-attribute-names '{"#status": "Status"}' \
-        #             --expression-attribute-values '{":status": {"S": "COMPLETED"}, ":completed": {"S": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}}'
-        #     done
-        # echo "State lock file preserved in S3 for environment: ${TF_ENV}"
+        aws dynamodb scan \
+            --table-name ind-tfstate-lock \
+            --filter-expression "Environment = :env AND #status = :status" \
+            --expression-attribute-names '{"#status": "Status"}' \
+            --expression-attribute-values '{":env": {"S": "'${TF_ENV}'"}, ":status": {"S": "ACTIVE"}}' \
+            --query 'Items[].LockID.S' \
+            --output text | while read LOCK_ID; do
+                aws dynamodb update-item \
+                    --table-name ind-tfstate-lock \
+                    --key "{\"LockID\": {\"S\": \"$LOCK_ID\"}}" \
+                    --update-expression "SET #status = :status, Completed = :completed" \
+                    --expression-attribute-names '{"#status": "Status"}' \
+                    --expression-attribute-values '{":status": {"S": "COMPLETED"}, ":completed": {"S": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}}'
+            done
+        echo "State lock file preserved in S3 for environment: ${TF_ENV}"
 
     # Verify S3 state bucket and DynamoDB table after apply
     - name: Verify S3 state bucket and DynamoDB table (post-apply)
@@ -316,6 +315,10 @@ jobs:
     - name: Terraform Destroy
       if: ${{ github.event.inputs.terraform_action == 'destroy' }}
       run: |
+        # Create custom state lock for destroy operation
+        chmod +x scripts/manage-state-lock.sh
+        ./scripts/manage-state-lock.sh ${TF_ENV} create
+        
         # First, clear the S3 bucket for current environment, only if bucket exists
         if aws s3api head-bucket --bucket ind-${TF_ENV}-data-test-1 2>/dev/null; then
           aws s3 rm s3://ind-${TF_ENV}-data-test-1 --recursive || true
@@ -356,6 +359,24 @@ jobs:
         echo "Sleeping for 5 seconds before destroy to allow lock file observation..."
         sleep 5
         terraform destroy -var-file=../environments/${TF_ENV}.tfvars -auto-approve
+        
+        # Update lock status to COMPLETED but keep file in S3
+        cd ..
+        aws dynamodb scan \
+            --table-name ind-tfstate-lock \
+            --filter-expression "Environment = :env AND #status = :status" \
+            --expression-attribute-names '{"#status": "Status"}' \
+            --expression-attribute-values '{":env": {"S": "'${TF_ENV}'"}, ":status": {"S": "ACTIVE"}}' \
+            --query 'Items[].LockID.S' \
+            --output text | while read LOCK_ID; do
+                aws dynamodb update-item \
+                    --table-name ind-tfstate-lock \
+                    --key "{\"LockID\": {\"S\": \"$LOCK_ID\"}}" \
+                    --update-expression "SET #status = :status, Completed = :completed" \
+                    --expression-attribute-names '{"#status": "Status"}' \
+                    --expression-attribute-values '{":status": {"S": "COMPLETED"}, ":completed": {"S": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}}'
+            done
+        echo "State lock file preserved in S3 for environment: ${TF_ENV}"
 
     # Verify S3 state bucket and DynamoDB table after destroy
     - name: Verify S3 state bucket and DynamoDB table (post-destroy)
