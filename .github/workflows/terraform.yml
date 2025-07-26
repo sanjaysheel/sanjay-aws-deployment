@@ -114,7 +114,6 @@ jobs:
             bucket         = "ind-tfstate-bucket"
             key            = "terraform/$ENV/terraform.tfstate"
             region         = "us-east-1"
-            dynamodb_table = "ind-tfstate-lock"
           }
         }
         EOF
