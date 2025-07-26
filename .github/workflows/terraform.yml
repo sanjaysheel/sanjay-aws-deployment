@@ -162,7 +162,12 @@ jobs:
         rm -f backend.tf
         cat > backend.tf << EOF
         terraform {
-          backend "local" {}
+          backend "s3" {
+            bucket         = "ind-tfstate-bucket"
+            key            = "terraform/${TF_ENV}/terraform.tfstate"
+            region         = "us-east-1"
+            dynamodb_table = "ind-tfstate-lock"
+          }
         }
         EOF
         cd main_module
@@ -178,7 +183,12 @@ jobs:
         rm -f backend.tf
         cat > backend.tf << EOF
         terraform {
-          backend "local" {}
+          backend "s3" {
+            bucket         = "ind-tfstate-bucket"
+            key            = "terraform/${TF_ENV}/terraform.tfstate"
+            region         = "us-east-1"
+            dynamodb_table = "ind-tfstate-lock"
+          }
         }
         EOF
         cd main_module
@@ -207,12 +217,16 @@ jobs:
         rm -f backend.tf
         cat > backend.tf << EOF
         terraform {
-          backend "local" {}
+          backend "s3" {
+            bucket         = "ind-tfstate-bucket"
+            key            = "terraform/${TF_ENV}/terraform.tfstate"
+            region         = "us-east-1"
+            dynamodb_table = "ind-tfstate-lock"
+          }
         }
         EOF
         cd main_module
         terraform init
-        
 
         # Import S3 bucket for the selected environment if it exists and is not managed by Terraform
         if aws s3api head-bucket --bucket ind-${TF_ENV}-data-test-1 2>/dev/null; then
@@ -230,7 +244,7 @@ jobs:
           aws iam get-role --role-name environment-stag-role >/dev/null 2>&1 && \
           terraform import -var-file=../environments/stag.tfvars aws_iam_role.environment_role environment-stag-role || true
         fi
-        
+
         terraform apply -var-file=../environments/${TF_ENV}.tfvars -auto-approve
 
     # Terraform Destroy (if selected)
@@ -252,13 +266,18 @@ jobs:
         rm -f .terraform.lock.hcl
         rm -rf .terraform
         rm -f backend.tf
-        
+
         cat > backend.tf << EOF
         terraform {
-          backend "local" {}
+          backend "s3" {
+            bucket         = "ind-tfstate-bucket"
+            key            = "terraform/${TF_ENV}/terraform.tfstate"
+            region         = "us-east-1"
+            dynamodb_table = "ind-tfstate-lock"
+          }
         }
         EOF
-        
+
         cd main_module
         terraform init
         terraform destroy -var-file=../environments/${TF_ENV}.tfvars -auto-approve
