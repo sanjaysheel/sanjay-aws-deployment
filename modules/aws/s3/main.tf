@@ -1,16 +1,14 @@
 
-resource "random_string" "bucket_suffix" {
-  length  = 6
-  upper   = false
-  special = false
+locals {
+  effective_env = var.environment == "stag" ? "dev" : var.environment
 }
 
 resource "aws_s3_bucket" "this" {
-  bucket        = "ind-${var.environment}-${var.bucket_name}-${random_string.bucket_suffix.result}"
+  bucket        = "ind-${local.effective_env}-${var.bucket_name}"
   force_destroy = var.force_destroy
 
   tags = merge({
-    Name = "ind-${var.environment}-${var.bucket_name}-${random_string.bucket_suffix.result}"
+    Name = "ind-${local.effective_env}-${var.bucket_name}"
   }, var.tags)
 }
 
