@@ -1,3 +1,3 @@
 provider "aws" {
-  region = local.deployment_region
+  region = var.aws_region
 }

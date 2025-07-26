@@ -28,6 +28,15 @@ on:
           - plan
           - apply
           - destroy
+      aws_region:
+        description: 'Select AWS Region'
+        required: true
+        default: 'us-west-1'
+        type: choice
+        options:
+          - us-west-1
+          - us-west-2
+          - us-east-1
 
 jobs:
   terraform:
@@ -160,13 +169,16 @@ jobs:
       run: |
         ENV="${{ github.event.inputs.environment || 'dev' }}"
         ACTION="${{ github.event.inputs.terraform_action || 'plan' }}"
+        REGION="${{ github.event.inputs.aws_region || 'us-west-1' }}"
         
         echo "Environment: $ENV"
         echo "Terraform Action: $ACTION"
+        echo "AWS Region: $REGION"
         
         # Set environment variables for later steps
         echo "TF_ENV=$ENV" >> $GITHUB_ENV
         echo "TF_ACTION=$ACTION" >> $GITHUB_ENV
+        echo "TF_REGION=$REGION" >> $GITHUB_ENV
         
         if [[ "$ENV" != "dev" && "$ENV" != "stag" && "$ENV" != "prod" ]]; then
           echo "Error: Environment must be one of: dev, stag, prod"
@@ -186,7 +198,7 @@ jobs:
           backend "s3" {
             bucket         = "ind-tfstate-bucket"
             key            = "terraform/${TF_ENV}/terraform.tfstate"
-            region         = "us-east-1"
+            region         = "${TF_REGION}"
             dynamodb_table = "ind-tfstate-lock"
           }
         }
@@ -198,12 +210,8 @@ jobs:
     - name: Terraform Plan
       if: ${{ github.event.inputs.terraform_action == 'plan' }}
       run: |
-        # Set region based on environment
-        if [ "${TF_ENV}" == "prod" ]; then
-          REGION="us-west-2"
-        else
-          REGION="us-west-1"
-        fi
+        # Use selected region from GitHub Actions input
+        REGION="${TF_REGION}"
         
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
