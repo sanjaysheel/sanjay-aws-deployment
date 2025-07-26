@@ -91,15 +91,16 @@ jobs:
         aws s3 rm s3://ind-tfstate-bucket/terraform/$ENV/terraform.tfstate || true
         
         # Clean up DynamoDB state lock
-        if aws dynamodb describe-table --table-name ind-tfstate-lock 2>/dev/null; then
-          echo "Cleaning DynamoDB table"
-          LOCK_IDS=$(aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --query 'Items[*].LockID.S' --output text 2>/dev/null)
-          if [ -n "$LOCK_IDS" ]; then
-            for LOCK_ID in $LOCK_IDS; do
-              aws dynamodb delete-item --table-name ind-tfstate-lock --key "{\"LockID\":{\"S\":\"$LOCK_ID\"}}" || true
-            done
-          fi
-        fi
+        echo "State lock files preserved for integrity"
+        # if aws dynamodb describe-table --table-name ind-tfstate-lock 2>/dev/null; then
+        #   echo "Cleaning DynamoDB table"
+        #   LOCK_IDS=$(aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --query 'Items[*].LockID.S' --output text 2>/dev/null)
+        #   if [ -n "$LOCK_IDS" ]; then
+        #     for LOCK_ID in $LOCK_IDS; do
+        #       aws dynamodb delete-item --table-name ind-tfstate-lock --key "{\"LockID\":{\"S\":\"$LOCK_ID\"}}" || true
+        #     done
+        #   fi
+        # fi
 
     # Force unlock state if needed
     - name: Force unlock state
