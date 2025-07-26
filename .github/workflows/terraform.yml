@@ -252,6 +252,9 @@ jobs:
           terraform import -var-file=../environments/stag.tfvars aws_iam_role.environment_role environment-stag-role || true
         fi
 
+        # Sleep to allow observation of lock file in S3
+        echo "Sleeping for 60 seconds before apply to allow lock file observation..."
+        sleep 60
         terraform apply -var-file=../environments/${TF_ENV}.tfvars -auto-approve
 
     # Verify S3 state bucket and DynamoDB table after apply
@@ -299,6 +302,9 @@ jobs:
 
         cd main_module
         terraform init
+        # Sleep to allow observation of lock file in S3
+        echo "Sleeping for 60 seconds before destroy to allow lock file observation..."
+        sleep 60
         terraform destroy -var-file=../environments/${TF_ENV}.tfvars -auto-approve
 
     # Verify S3 state bucket and DynamoDB table after destroy
