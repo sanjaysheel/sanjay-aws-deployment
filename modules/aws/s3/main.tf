@@ -1,9 +1,16 @@
+
+resource "random_string" "bucket_suffix" {
+  length  = 6
+  upper   = false
+  special = false
+}
+
 resource "aws_s3_bucket" "this" {
-  bucket = "ind-${var.environment}-${var.bucket_name}"
+  bucket        = "ind-${var.environment}-${var.bucket_name}-${random_string.bucket_suffix.result}"
   force_destroy = var.force_destroy
 
   tags = merge({
-    Name = "ind-${var.environment}-${var.bucket_name}"
+    Name = "ind-${var.environment}-${var.bucket_name}-${random_string.bucket_suffix.result}"
   }, var.tags)
 }
 
