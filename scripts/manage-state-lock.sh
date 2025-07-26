@@ -63,7 +63,30 @@ EOF
                 }"
             
             echo "Lock created with Process ID: $PROCESS_ID"
+            # =======================================================
             
+            # Cleanup old entries - keep only last 2 per environment
+            echo "Cleaning up old lock entries..."
+            OLD_LOCKS=$(aws dynamodb scan \
+                --table-name $DYNAMODB_TABLE \
+                --filter-expression "Environment = :env" \
+                --expression-attribute-values '{":env": {"S": "'$ENVIRONMENT'"}}' \
+                --query 'Items[].{LockID: LockID.S, Created: Created.S}' \
+                --output json | jq -r 'sort_by(.Created) | reverse | .[2:] | .[].LockID')
+            
+            if [ -n "$OLD_LOCKS" ]; then
+                echo "$OLD_LOCKS" | while read -r OLD_LOCK_ID; do
+                    if [ -n "$OLD_LOCK_ID" ]; then
+                        echo "Deleting old lock: $OLD_LOCK_ID"
+                        aws dynamodb delete-item \
+                            --table-name $DYNAMODB_TABLE \
+                            --key "{\"LockID\": {\"S\": \"$OLD_LOCK_ID\"}}" || true
+                    fi
+                done
+            else
+                echo "No old locks to cleanup"
+            fi
+            # =======================================================
             echo "TERRAFORM_LOCK_ID=$LOCK_ID" >> $GITHUB_ENV
         else
             echo "Failed to create new lock file"
