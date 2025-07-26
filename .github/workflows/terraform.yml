@@ -238,9 +238,15 @@ jobs:
       if: ${{ env.TF_ACTION == 'destroy' }}
       run: |
         # First, clear the S3 bucket for current environment
-        aws s3 rm s3://ind-${TF_ENV}-${TF_ENV}-data-test-1 --recursive || true
-        aws s3api delete-objects --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --delete "$(aws s3api list-object-versions --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --query '{Objects: Versions[].{Key: Key, VersionId: VersionId}}' --output json)" || true
-        aws s3api delete-objects --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --delete "$(aws s3api list-object-versions --bucket ind-${TF_ENV}-${TF_ENV}-data-test-1 --query '{Objects: DeleteMarkers[].{Key: Key, VersionId: VersionId}}' --output json)" || true
+        aws s3 rm s3://ind-${TF_ENV}-data-test-1 --recursive || true
+        VERSIONS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: Versions[].{Key: Key, VersionId: VersionId}}' --output json)
+        if [ "$(echo $VERSIONS_JSON | jq '.Objects | length')" -gt 0 ]; then
+          aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$VERSIONS_JSON"
+        fi
+        DELETEMARKERS_JSON=$(aws s3api list-object-versions --bucket ind-${TF_ENV}-data-test-1 --query '{Objects: DeleteMarkers[].{Key: Key, VersionId: VersionId}}' --output json)
+        if [ "$(echo $DELETEMARKERS_JSON | jq '.Objects | length')" -gt 0 ]; then
+          aws s3api delete-objects --bucket ind-${TF_ENV}-data-test-1 --delete "$DELETEMARKERS_JSON"
+        fi
 
         rm -f terraform.tfstate*
         rm -f .terraform.lock.hcl
