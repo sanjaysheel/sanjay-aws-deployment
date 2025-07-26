@@ -172,7 +172,6 @@ jobs:
             bucket         = "ind-tfstate-bucket"
             key            = "terraform/${TF_ENV}/terraform.tfstate"
             region         = "us-east-1"
-            dynamodb_table = "ind-tfstate-lock"
           }
         }
         EOF
@@ -193,7 +192,6 @@ jobs:
             bucket         = "ind-tfstate-bucket"
             key            = "terraform/${TF_ENV}/terraform.tfstate"
             region         = "us-east-1"
-            dynamodb_table = "ind-tfstate-lock"
           }
         }
         EOF
@@ -231,7 +229,6 @@ jobs:
             bucket         = "ind-tfstate-bucket"
             key            = "terraform/${TF_ENV}/terraform.tfstate"
             region         = "us-east-1"
-            dynamodb_table = "ind-tfstate-lock"
           }
         }
         EOF
@@ -296,7 +293,6 @@ jobs:
             bucket         = "ind-tfstate-bucket"
             key            = "terraform/${TF_ENV}/terraform.tfstate"
             region         = "us-east-1"
-            dynamodb_table = "ind-tfstate-lock"
           }
         }
         EOF
