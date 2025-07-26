@@ -102,41 +102,55 @@ jobs:
         #   fi
         # fi
 
-    # Force unlock state if needed
-    - name: Force unlock state
+    # Check state lock status
+    - name: Check state lock status
       run: |
         ENV="${{ github.event.inputs.environment }}"
-        echo "Attempting to force unlock state for environment: $ENV"
-
-        # Prepare backend config for the environment
-        cat > backend.tf << EOF
-        terraform {
-          backend "s3" {
-            bucket         = "ind-tfstate-bucket"
-            key            = "terraform/$ENV/terraform.tfstate"
-            region         = "us-east-1"
-          }
-        }
-        EOF
-        cd main_module
-        terraform init -reconfigure
-        cd ..
-
-        # Force unlock in DynamoDB
+        echo "Checking state lock status for environment: $ENV"
+        
         if aws dynamodb describe-table --table-name ind-tfstate-lock 2>/dev/null; then
-          LOCK_IDS=$(aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --query 'Items[*].LockID.S' --output text 2>/dev/null)
-          if [ -n "$LOCK_IDS" ]; then
-            for LOCK_ID in $LOCK_IDS; do
-              cd main_module
-              terraform force-unlock -force "$LOCK_ID" || true
-              cd ..
-            done
-          else
-            echo "No locks found in DynamoDB table"
-          fi
+          LOCK_COUNT=$(aws dynamodb scan --table-name ind-tfstate-lock --select COUNT --query 'Count' --output text)
+          echo "Current locks in DynamoDB: $LOCK_COUNT"
         else
           echo "DynamoDB lock table does not exist yet"
         fi
+
+
+#     # Force unlock state if needed
+#     - name: Force unlock state
+#       run: |
+#         ENV="${{ github.event.inputs.environment }}"
+#         echo "Attempting to force unlock state for environment: $ENV"
+        
+# # Prepare backend config for the environment
+#         cat > backend.tf << EOF
+#         terraform {
+#           backend "s3" {
+#             bucket         = "ind-tfstate-bucket"
+#             key            = "terraform/$ENV/terraform.tfstate"
+#             region         = "us-east-1"
+#           }
+#         }
+#         EOF
+#         cd main_module
+#         terraform init -reconfigure
+#         cd ..
+
+#         # Force unlock in DynamoDB
+#         if aws dynamodb describe-table --table-name ind-tfstate-lock 2>/dev/null; then
+#           LOCK_IDS=$(aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --query 'Items[*].LockID.S' --output text 2>/dev/null)
+#           if [ -n "$LOCK_IDS" ]; then
+#             for LOCK_ID in $LOCK_IDS; do
+#               cd main_module
+#               terraform force-unlock -force "$LOCK_ID" || true
+#               cd ..
+#             done
+#           else
+#             echo "No locks found in DynamoDB table"
+#           fi
+#         else
+#           echo "DynamoDB lock table does not exist yet"
+#         fi
 
         # Also try S3 direct unlock
         # aws s3api put-object --bucket ind-tfstate-bucket --key terraform/$ENV/terraform.tfstate.lock --body /dev/null || true
