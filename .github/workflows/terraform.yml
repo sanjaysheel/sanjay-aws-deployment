@@ -292,9 +292,11 @@ jobs:
       run: |
         echo "Listing objects in S3 state bucket ind-tfstate-bucket:"
         aws s3 ls s3://ind-tfstate-bucket/terraform/ || echo "No state folder yet."
-        echo "\nListing DynamoDB lock table ind-tfstate-lock:"
-        aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --output table || echo "No lock table yet."
-
+        echo "\nChecking custom lock history in DynamoDB:"
+        ./scripts/manage-state-lock.sh ${TF_ENV} check
+        echo "\nListing all DynamoDB lock entries:"
+        aws dynamodb scan --table-name ind-tfstate-lock --output table || echo "No lock table yet."
+        
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
       if: ${{ github.event.inputs.terraform_action == 'destroy' }}
