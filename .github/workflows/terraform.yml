@@ -62,7 +62,6 @@ jobs:
           terraform init
           terraform apply -auto-approve
           cd ..
-          
           # Copy backend template to backend.tf
           cp backend.tf.tmpl backend.tf
         else
@@ -72,6 +71,14 @@ jobs:
             cp backend.tf.tmpl backend.tf
           fi
         fi
+
+    # Verify S3 state bucket and DynamoDB table after setup
+    - name: Verify S3 state bucket and DynamoDB table (post-setup)
+      run: |
+        echo "Listing objects in S3 state bucket ind-tfstate-bucket:"
+        aws s3 ls s3://ind-tfstate-bucket/terraform/ || echo "No state folder yet."
+        echo "\nListing DynamoDB lock table ind-tfstate-lock:"
+        aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --output table || echo "No lock table yet."
 
     # Handle state issues
     - name: Handle state issues
@@ -197,7 +204,6 @@ jobs:
 
     # Terraform Apply (if selected)
     - name: Terraform Apply
-      if: ${{ env.TF_ACTION == 'apply' }}
       run: |
         # Empty S3 buckets before operations, only if bucket exists
         echo "Emptying S3 buckets for ${TF_ENV} environment"
@@ -251,9 +257,17 @@ jobs:
 
         terraform apply -var-file=../environments/${TF_ENV}.tfvars -auto-approve
 
+    # Verify S3 state bucket and DynamoDB table after apply
+    - name: Verify S3 state bucket and DynamoDB table (post-apply)
+      if: ${{ env.TF_ACTION == 'apply' }}
+      run: |
+        echo "Listing objects in S3 state bucket ind-tfstate-bucket:"
+        aws s3 ls s3://ind-tfstate-bucket/terraform/ || echo "No state folder yet."
+        echo "\nListing DynamoDB lock table ind-tfstate-lock:"
+        aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --output table || echo "No lock table yet."
+
     # Terraform Destroy (if selected)
     - name: Terraform Destroy
-      if: ${{ env.TF_ACTION == 'destroy' }}
       run: |
         # First, clear the S3 bucket for current environment, only if bucket exists
         if aws s3api head-bucket --bucket ind-${TF_ENV}-data-test-1 2>/dev/null; then
@@ -289,3 +303,12 @@ jobs:
         cd main_module
         terraform init
         terraform destroy -var-file=../environments/${TF_ENV}.tfvars -auto-approve
+
+    # Verify S3 state bucket and DynamoDB table after destroy
+    - name: Verify S3 state bucket and DynamoDB table (post-destroy)
+      if: ${{ env.TF_ACTION == 'destroy' }}
+      run: |
+        echo "Listing objects in S3 state bucket ind-tfstate-bucket:"
+        aws s3 ls s3://ind-tfstate-bucket/terraform/ || echo "No state folder yet."
+        echo "\nListing DynamoDB lock table ind-tfstate-lock:"
+        aws dynamodb scan --table-name ind-tfstate-lock --attributes-to-get LockID --output table || echo "No lock table yet."
